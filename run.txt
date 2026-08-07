@@ -1,0 +1,7 @@
+terminal 1:
+cd backend
+uv run python src/agent.py dev
+
+terminal 2:
+cd frontend
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User"); pnpm dev
