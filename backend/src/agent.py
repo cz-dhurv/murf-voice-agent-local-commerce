@@ -118,8 +118,8 @@ async def my_agent(ctx: JobContext):
         tts=murf.TTS(
                 voice="Anisha",
                 locale="hi-IN",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                style="Conversational",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=15),
                 text_pacing=True
             ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
