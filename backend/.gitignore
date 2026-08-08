@@ -11,6 +11,11 @@ KMS
 .pytest_cache
 .ruff_cache
 
+# runtime logs / scratch
+*.log
+falcon_voices.json
+falcon2.json
+
 # Claude Code
 .claude/settings.local.json
 .claude/worktrees/

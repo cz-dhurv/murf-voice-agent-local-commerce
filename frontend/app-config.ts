@@ -33,36 +33,27 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Murf AI',
-  pageTitle: 'Voice Agent Starter',
-  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+  companyName: 'DukaanSaathi',
+  pageTitle: 'DukaanSaathi — Aapka Digital Dukaan Saathi',
+  pageDescription:
+    'Voice assistant for Indian shopkeepers. UPI, GST, sarkari yojana aur online business — sab kuch bol kar seekhein.',
 
   supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
-  logo: '/murf-logo.svg',
-  accent: '#6366F1',
-  logoDark: '/murf-logo-dark.svg',
-  accentDark: '#818cf8',
-  startButtonText: 'Start talking',
+  logo: '/dukaan-logo.svg',
+  accent: '#EA580C',
+  logoDark: '/dukaan-logo.svg',
+  accentDark: '#FB923C',
+  startButtonText: 'Baat shuru karein',
 
-  // optional: audio visualization configuration
-  // audioVisualizerType: 'bar',
-  // audioVisualizerColor: '#002cf2',
-  // audioVisualizerColorDark: '#1fd5f9',
-  // audioVisualizerColorShift: 0.3,
-  // audioVisualizerBarCount: 5,
-  // audioVisualizerType: 'radial',
-  // audioVisualizerRadialBarCount: 24,
-  // audioVisualizerRadialRadius: 100,
-  // audioVisualizerType: 'grid',
-  // audioVisualizerGridRowCount: 25,
-  // audioVisualizerGridColumnCount: 25,
-  // audioVisualizerType: 'wave',
-  // audioVisualizerWaveLineWidth: 3,
-  // audioVisualizerType: 'aura',
+  // saffron voice bars — matches the shopkeeper brand
+  audioVisualizerType: 'bar',
+  audioVisualizerColor: '#EA580C',
+  audioVisualizerColorDark: '#FB923C',
+  audioVisualizerBarCount: 5,
 
   // agent dispatch configuration
   agentName: process.env.AGENT_NAME ?? undefined,
