@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "turn_uid": "af7450dc-7176-54cd-8d12-f4fb5ec6d991",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 20,
+  "native_turn_index": 20,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "commit the previous changes. alwayss use oobo and ponytail. Now --> ensure no dummy ui/data and also ensure that this build for only Local Commerce and have ...",
+  "started_at": 1786314398,
+  "ended_at": 1786315061,
+  "tokens": {
+    "input": 1082473,
+    "cache_read": 1701268,
+    "cache_creation": 1491120,
+    "output": 50243
+  },
+  "tool_names": [
+    "Bash",
+    "Read",
+    "Bash",
+    "Read",
+    "Bash",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash",
+    "TaskList",
+    "Read",
+    "Grep"
+  ],
+  "capture_gap": false
+}

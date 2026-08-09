@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "backend\\src\\memory.py"
+    },
+    {
+      "path": "frontend"
+    },
+    {
+      "path": "frontend\\app\\api\\callers\\route.ts"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\data.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\demo.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\shell.tsx"
+    }
+  ]
+}
