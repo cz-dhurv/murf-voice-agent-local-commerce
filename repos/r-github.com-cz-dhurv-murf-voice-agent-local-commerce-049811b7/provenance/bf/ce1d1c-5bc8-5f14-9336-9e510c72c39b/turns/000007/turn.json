@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "turn_uid": "6fcec7d7-c4b3-54aa-9994-ce757fe8420c",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 7,
+  "native_turn_index": 7,
+  "source": "claude",
+  "trigger": "when anything order the agent should ask for prefered delivery slot and contact info.",
+  "started_at": 1786304331,
+  "ended_at": 1786304331,
+  "tokens": {
+    "input": null,
+    "cache_read": null,
+    "cache_creation": null,
+    "output": null
+  },
+  "capture_gap": false
+}
