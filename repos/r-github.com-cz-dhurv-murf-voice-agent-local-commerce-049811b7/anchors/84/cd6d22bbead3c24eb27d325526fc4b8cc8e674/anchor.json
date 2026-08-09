@@ -1,0 +1,387 @@
+{
+  "anchor_schema_version": 1,
+  "oobo_version": "2.0.0",
+  "commit_hash": "84cd6d22bbead3c24eb27d325526fc4b8cc8e674",
+  "branch": "day5",
+  "author": "cz-dhurv <dhruvkr209@example.com>",
+  "author_type": "agent",
+  "contributors": [
+    {
+      "name": "cz-dhurv <dhruvkr209@example.com>",
+      "role": "human"
+    },
+    {
+      "name": "claude",
+      "role": "agent",
+      "model": "claude-opus-4-8"
+    }
+  ],
+  "committed_at": 1786314902,
+  "message": "feat(day5): full dashboard build-out — real caller/DB surfaces + route pages",
+  "files_changed": [
+    ".gitignore",
+    ".oobo/.gitignore",
+    ".oobo/config",
+    "frontend/app/dashboard/agents/page.tsx",
+    "frontend/app/dashboard/analytics/page.tsx",
+    "frontend/app/dashboard/callers/[id]/page.tsx",
+    "frontend/app/dashboard/callers/page.tsx",
+    "frontend/app/dashboard/history/page.tsx",
+    "frontend/app/dashboard/integrations/page.tsx",
+    "frontend/app/dashboard/knowledge/page.tsx",
+    "frontend/app/dashboard/layout.tsx",
+    "frontend/app/dashboard/live/page.tsx",
+    "frontend/app/dashboard/memory/page.tsx",
+    "frontend/app/dashboard/memory/tools/page.tsx",
+    "frontend/app/dashboard/multilingual/page.tsx",
+    "frontend/app/dashboard/page.tsx",
+    "frontend/app/dashboard/settings/consent/page.tsx",
+    "frontend/app/dashboard/settings/page.tsx",
+    "frontend/app/opengraph-image.tsx",
+    "frontend/components/agents-ui/agent-control-bar.tsx",
+    "frontend/components/agents-ui/agent-disconnect-button.tsx",
+    "frontend/components/app/dashboard.tsx",
+    "frontend/components/app/dashboard/dashboard-app.tsx",
+    "frontend/components/app/dashboard/data.ts",
+    "frontend/components/app/dashboard/demo.ts",
+    "frontend/components/app/dashboard/kit.tsx",
+    "frontend/components/app/dashboard/shell.tsx"
+  ],
+  "added": 3018,
+  "deleted": 907,
+  "file_changes": [
+    {
+      "path": ".gitignore",
+      "added": 1,
+      "deleted": 0,
+      "attribution": "human"
+    },
+    {
+      "path": ".oobo/.gitignore",
+      "added": 6,
+      "deleted": 0,
+      "attribution": "human"
+    },
+    {
+      "path": ".oobo/config",
+      "added": 8,
+      "deleted": 0,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/app/dashboard/agents/page.tsx",
+      "added": 88,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/analytics/page.tsx",
+      "added": 88,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/callers/[id]/page.tsx",
+      "added": 260,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/callers/page.tsx",
+      "added": 179,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/history/page.tsx",
+      "added": 111,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/integrations/page.tsx",
+      "added": 90,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/knowledge/page.tsx",
+      "added": 65,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/layout.tsx",
+      "added": 5,
+      "deleted": 7,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/live/page.tsx",
+      "added": 78,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/memory/page.tsx",
+      "added": 82,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/memory/tools/page.tsx",
+      "added": 86,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/multilingual/page.tsx",
+      "added": 54,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/page.tsx",
+      "added": 520,
+      "deleted": 3,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/settings/consent/page.tsx",
+      "added": 51,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/dashboard/settings/page.tsx",
+      "added": 70,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/opengraph-image.tsx",
+      "added": 65,
+      "deleted": 67,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/agents-ui/agent-control-bar.tsx",
+      "added": 1,
+      "deleted": 1,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/agents-ui/agent-disconnect-button.tsx",
+      "added": 1,
+      "deleted": 2,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/app/dashboard.tsx",
+      "added": 0,
+      "deleted": 827,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/app/dashboard/dashboard-app.tsx",
+      "added": 58,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/components/app/dashboard/data.ts",
+      "added": 152,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/components/app/dashboard/demo.ts",
+      "added": 306,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/components/app/dashboard/kit.tsx",
+      "added": 328,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/components/app/dashboard/shell.tsx",
+      "added": 265,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude"
+    }
+  ],
+  "ai_added": 2936,
+  "ai_deleted": 10,
+  "human_added": 82,
+  "human_deleted": 897,
+  "ai_percentage": 75.05732484076432,
+  "session_ids": [
+    "a3c4a0b8-5912-479c-b4eb-b167db97094a"
+  ],
+  "transparency_mode": "on",
+  "turns": [
+    {
+      "id": "t8fe168859f484596",
+      "session_id": "a3c4a0b8-5912-479c-b4eb-b167db97094a",
+      "source": "claude",
+      "turn_index": 19,
+      "tree_hash": "6d202745d30401a9514cbae75f0f4d52ec0c1ddb"
+    }
+  ],
+  "session_refs": [
+    {
+      "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+      "turn_uids": [
+        "3987d14b-7f2b-51ed-8f62-6a525a2cc67e",
+        "ef337c48-e822-5347-a364-b8803318cfda",
+        "4ef1bbfa-979c-5917-9e66-19c22d502d70",
+        "8e4034da-aaa5-59f9-9b34-d71206d19725",
+        "811b4c62-c47d-5264-bc87-4744b7c327b4",
+        "3802ee49-98a0-551a-8041-9f2e3f5c9425",
+        "45ba3891-bb1c-54cb-ad2b-e7e9786330ab",
+        "fae912de-5c3e-583c-97e1-bd09dfbb27c3",
+        "db95a150-d06a-5689-b6b3-53b26a639f92",
+        "94ed1590-f7bf-54fc-81d8-307c3f6e5f9d",
+        "5c909e98-2235-5879-bf62-f5d2beb9665f",
+        "c5185426-da4b-5d7a-9654-d1f2da7c51d3",
+        "6fcec7d7-c4b3-54aa-9994-ce757fe8420c",
+        "456ec948-fb14-5e70-8bbc-27f2bed9a4a8",
+        "bd4aec37-fdc8-54b9-b4ad-c89d301afafa",
+        "57050ece-539a-5e02-939f-466b0791c314",
+        "5d6d8568-bd4a-585c-bacf-a29dafad07b4",
+        "c0b6c30c-5201-5e83-9277-2235213d4c10",
+        "23cd66cd-8858-5e0a-b885-d16419fa8eba",
+        "011b6e29-a726-5659-9456-aa24d9bd240d"
+      ]
+    }
+  ],
+  "session_links": [
+    {
+      "session_id": "a3c4a0b8-5912-479c-b4eb-b167db97094a",
+      "agent": "claude",
+      "model": "claude-opus-4-8",
+      "link_type": "explicit",
+      "input_tokens": 4790303,
+      "output_tokens": 452829,
+      "cache_read_tokens": 15777071,
+      "cache_creation_tokens": 13488879,
+      "duration_secs": 0,
+      "tool_calls": 131,
+      "files_touched": [
+        "frontend/app/dashboard/memory/page.tsx",
+        "frontend/app/dashboard/layout.tsx",
+        "frontend/app/dashboard/multilingual/page.tsx",
+        "frontend/components/app/dashboard/demo.ts",
+        "frontend/components/app/dashboard/data.ts",
+        "frontend/components/app/dashboard/kit.tsx",
+        "frontend/lib/i18n.ts",
+        "frontend/app/dashboard/agents/page.tsx",
+        "frontend/app/dashboard/knowledge/page.tsx",
+        "frontend/app/dashboard/settings/consent/page.tsx",
+        "frontend/app/dashboard/analytics/page.tsx",
+        "frontend/app/dashboard/callers/[id]/page.tsx",
+        "frontend/components/app/dashboard/dashboard-app.tsx",
+        "frontend/app/dashboard/history/page.tsx",
+        "backend/src/memory.py",
+        "frontend/app/dashboard/page.tsx",
+        "frontend/components/app/dashboard.tsx",
+        "README.md",
+        "backend/README.md",
+        "backend/src/agent.py",
+        "frontend/app/dashboard/settings/page.tsx",
+        "frontend/app/dashboard/integrations/page.tsx",
+        "frontend/app/dashboard/memory/tools/page.tsx",
+        "frontend/app/dashboard/live/page.tsx",
+        "frontend/components/app/dashboard/shell.tsx",
+        "frontend/app/dashboard/callers/page.tsx"
+      ],
+      "tool_usage": {
+        "Write": 20,
+        "TaskUpdate": 15,
+        "Read": 68,
+        "Glob": 2,
+        "AskUserQuestion": 1,
+        "Edit": 36,
+        "Bash": 44,
+        "Grep": 8,
+        "TaskCreate": 9
+      },
+      "tool_failures": 2,
+      "bash_commands": [
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== DOCS tree ===\" && find DOCS -type f | head -50",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/frontend\" && npx tsc --noEmit && echo \"TSC_OK\" && npx eslint lib/i18n.ts && echo \"ESLINT_OK\"",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/backend\" && python -m py_compile src/agent.py && echo \"PY_OK\"",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/backend\" && python -c \"\nimport sqlite3, os\np = os.environ.get('MEMORY_DB_PATH', 'data/memory.db')\ncon = sqlite3.connect(p)\nrows = con.execute('SELECT user_i...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== branch ===\" && git rev-parse --abbrev-ref HEAD && echo \"=== status ===\" && git status --short && echo \"=== diff stat ===\" && git diff --stat &...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== .oobo contents ===\" && find .oobo -maxdepth 2 | head -20 && echo \"=== DOCS contents ===\" && find DOCS -type f && echo \"=== remotes ===\" && git...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== dashboard.tsx diff ===\" && git diff frontend/components/app/dashboard.tsx && echo \"=== scan all diffs for secret-ish tokens ===\" && git diff |...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git add backend/src/agent.py frontend/app/api/token/route.ts frontend/components/app/app.tsx frontend/components/app/dashboard.tsx frontend/components/a...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git commit -F- <<'EOF'\nfix(day4): token-baked caller attributes + order-first identity\n\nDeliver caller_id + language as LiveKit token attributes so the ...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git push -u origin day4 2>&1",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git fetch origin 2>&1 && echo \"=== branches ===\" && git branch -vv && echo \"=== main vs day4 (local) ===\" && git log --oneline --graph main..day4 2>/dev...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git checkout main 2>&1 && git merge --ff-only day4 2>&1 && git push origin main 2>&1 && echo \"=== after ===\" && git log --oneline -3 origin/main 2>/dev/...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/backend\" && python -m py_compile src/agent.py && echo \"PY_OK\" && echo \"=== how dashboard renders facts (check it's generic, not per-key) ===\" && cd \"../fron...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/frontend\" && npx eslint --fix components/app/dashboard.tsx && echo \"ESLINT_OK\" && echo \"=== git sees only the logical change? ===\" && cd .. && git diff --st...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\backend\" && python src/memory.py",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\backend\" && python -m py_compile src/agent.py && echo PY_OK",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx tsc --noEmit && echo TSC_OK",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx eslint --fix lib/i18n.ts components/app/dashboard.tsx && echo ESLINT_OK",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git diff --stat",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git diff .gitignore && echo \"---CHECK-IGNORE---\" && git check-ignore backend/data/memory.db",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\backend\" && python src/memory.py && python -m py_compile src/agent.py && echo ALL_PY_OK",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx tsc --noEmit && echo TSC_OK",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\backend\\src\" && python -c \"\nimport asyncio, sqlite3, memory\nmemory._DB_PATH = '.'  # a directory is not a valid sqlite file -> read error\nasync def main():\n...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git status --short && echo \"---BRANCH---\" && git branch --show-current",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && echo \"--- is DOCS tracked? ---\" && git ls-files DOCS/ | head -5 && echo \"--- .oobo contents ---\" && ls -la .oobo/ 2>/dev/null | head && echo \"--- is .oo...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git checkout -b day5 && git add backend/src/agent.py backend/src/memory.py frontend/components/app/dashboard.tsx frontend/lib/i18n.ts README.md backend/...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git diff --cached -G'(API_KEY|SECRET|sk-|AIza|password|token\\s*=)' -i --stat && echo \"---GREP STAGED FOR SECRET-LIKE---\" && git diff --cached -i | grep ...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git commit -m \"$(cat <<'EOF'\nfeat(day5): catalogue lookup + order-total tools over local shop dataset\n\nTwo real function-call tools backed by a hand-bui...",
+        "cd \"C:/Users/maury/Documents/Murf Challenge/frontend/app/dashboard\" && find . -name \"page.tsx\" | sort",
+        "cd \"C:/Users/maury/Documents/Murf Challenge/frontend\" && rm \"components/app/dashboard.tsx\" && echo \"deleted\" && ls components/app/",
+        "cd \"C:/Users/maury/Documents/Murf Challenge/frontend\" && npx tsc --noEmit 2>&1 | head -50; echo \"---EXIT:$?---\"",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx eslint app/dashboard 2>&1 | head -60; echo \"---EXIT:${PIPESTATUS[0]}---\"",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx eslint app/dashboard --fix 2>&1 | head -40; echo \"---EXIT:${PIPESTATUS[0]}---\"",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && echo \"== tsc ==\" && npx tsc --noEmit 2>&1 | head -30; echo \"tsc-exit:${PIPESTATUS[0]}\" && echo \"== eslint (app + components) ==\" && npx eslint ...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx eslint app components --fix 2>&1 | tail -20; echo \"eslint-exit:${PIPESTATUS[0]}\"",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\"\nBASE=\"http://localhost:3001\"\n# quick check server is up\nif ! curl -s -o /dev/null -m 5 \"$BASE/dashboard\"; then echo \"SERVER_DOWN\"; exit 0; fi\nrout...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && ls -la .oobo/ 2>&1; echo \"---README/config---\"; find .oobo -maxdepth 2 -type f 2>/dev/null | head -40",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git status --short && echo \"---branch---\" && git branch --show-current && echo \"---oobo config---\" && cat .oobo/config",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\"\necho \"=== oobo on PATH? ===\"; command -v oobo 2>&1 || echo \"NO\"\necho \"=== npx oobo? ===\"; ls node_modules/.bin/oobo 2>&1 || echo \"no local bin\"\necho \"=== ....",
+        "oobo --help 2>&1 | head -60; echo \"=== subcommands ===\"; oobo commit --help 2>&1 | head -40",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\"\necho \"=== .gitignore diff ===\"; git diff .gitignore\necho \"=== are secrets/db still ignored? ===\"\ngit check-ignore backend/.env.local backend/data/memory.db...",
+        "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\"\ngit add -A\necho \"=== staged summary ===\"; git diff --cached --stat | tail -5\ngit commit -q -m \"feat(day5): full dashboard build-out — real caller/DB surfac..."
+      ],
+      "is_subagent": false,
+      "is_estimated": false
+    }
+  ],
+  "coverage": {
+    "tools": [
+      "claude"
+    ],
+    "recorded_at": 1786314929
+  }
+}
