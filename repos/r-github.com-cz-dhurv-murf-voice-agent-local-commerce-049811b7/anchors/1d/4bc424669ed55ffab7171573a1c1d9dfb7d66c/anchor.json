@@ -113,7 +113,9 @@
         "c0b6c30c-5201-5e83-9277-2235213d4c10",
         "23cd66cd-8858-5e0a-b885-d16419fa8eba",
         "011b6e29-a726-5659-9456-aa24d9bd240d",
-        "5d6d8568-bd4a-585c-bacf-a29dafad07b4"
+        "5d6d8568-bd4a-585c-bacf-a29dafad07b4",
+        "bd4aec37-fdc8-54b9-b4ad-c89d301afafa",
+        "57050ece-539a-5e02-939f-466b0791c314"
       ]
     }
   ],
@@ -133,10 +135,10 @@
         "backend/src/agent.py"
       ],
       "tool_usage": {
-        "Read": 2,
         "AskUserQuestion": 1,
-        "Bash": 9,
-        "Edit": 8
+        "Edit": 8,
+        "Read": 2,
+        "Bash": 9
       },
       "bash_commands": [
         "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== DOCS tree ===\" && find DOCS -type f | head -50",
