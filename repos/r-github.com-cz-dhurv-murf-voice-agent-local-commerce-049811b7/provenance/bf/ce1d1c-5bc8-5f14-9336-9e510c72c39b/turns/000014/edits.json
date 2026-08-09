@@ -1,0 +1,55 @@
+{
+  "files": [
+    {
+      "path": "DOCS\\UI\\ChatGPT Image Aug 10, 2026, 02_19_13 AM.png"
+    },
+    {
+      "path": "frontend\\app-config.ts"
+    },
+    {
+      "path": "frontend\\app\\api\\callers\\route.ts"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\layout.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\layout.tsx"
+    },
+    {
+      "path": "frontend\\app\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\app.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\landing.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\language-provider.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\language-toggle.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\theme-toggle.tsx"
+    },
+    {
+      "path": "frontend\\components\\ui\\button.tsx"
+    },
+    {
+      "path": "frontend\\lib\\i18n.ts"
+    },
+    {
+      "path": "frontend\\lib\\utils.ts"
+    },
+    {
+      "path": "frontend\\styles\\globals.css"
+    }
+  ]
+}
