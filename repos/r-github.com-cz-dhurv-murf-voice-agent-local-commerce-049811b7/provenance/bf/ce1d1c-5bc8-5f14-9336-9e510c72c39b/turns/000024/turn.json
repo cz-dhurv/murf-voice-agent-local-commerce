@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "turn_uid": "3b07aa79-30d6-5195-81a2-708c37dae7b0",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 24,
+  "native_turn_index": 24,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "continue",
+  "started_at": 1786317071,
+  "ended_at": 1786318798,
+  "tokens": {
+    "input": 1897,
+    "cache_read": 667440,
+    "cache_creation": 2422522,
+    "output": 11109
+  },
+  "tool_names": [
+    "Edit",
+    "Grep",
+    "Grep",
+    "Glob",
+    "Bash",
+    "TaskUpdate",
+    "TaskUpdate",
+    "Grep",
+    "Bash",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell"
+  ],
+  "capture_gap": false
+}

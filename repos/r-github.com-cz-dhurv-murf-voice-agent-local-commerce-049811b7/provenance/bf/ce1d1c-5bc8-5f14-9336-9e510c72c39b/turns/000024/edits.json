@@ -1,0 +1,13 @@
+{
+  "files": [
+    {
+      "path": "frontend"
+    },
+    {
+      "path": "frontend\\app\\dashboard"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\integrations\\page.tsx"
+    }
+  ]
+}
