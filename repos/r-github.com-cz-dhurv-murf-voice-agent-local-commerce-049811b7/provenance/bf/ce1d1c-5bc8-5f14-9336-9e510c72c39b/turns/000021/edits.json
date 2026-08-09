@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "backend\\src\\memory.py"
+    },
+    {
+      "path": "frontend"
+    },
+    {
+      "path": "frontend\\app\\api\\catalogue\\route.ts"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\agents\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\integrations\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\live\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\data.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\kit.tsx"
+    },
+    {
+      "path": "frontend\\lib\\i18n.ts"
+    }
+  ]
+}

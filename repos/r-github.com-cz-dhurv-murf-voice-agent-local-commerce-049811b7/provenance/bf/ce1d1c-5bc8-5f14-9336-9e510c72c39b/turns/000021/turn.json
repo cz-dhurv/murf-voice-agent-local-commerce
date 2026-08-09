@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "turn_uid": "898229e4-f9da-5baa-8e92-29d8d23ee009",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 21,
+  "native_turn_index": 21,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summa...",
+  "started_at": 1786315090,
+  "ended_at": 1786315476,
+  "tokens": {
+    "input": 150141,
+    "cache_read": 1625071,
+    "cache_creation": 2890451,
+    "output": 73123
+  },
+  "tool_names": [
+    "Glob",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Grep",
+    "Read",
+    "Bash",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskCreate",
+    "TaskUpdate",
+    "Write"
+  ],
+  "capture_gap": false
+}
