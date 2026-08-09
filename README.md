@@ -260,6 +260,15 @@ For deeper documentation on each part, see:
 
 ---
 
+## Local Commerce data (local dataset)
+
+This build is a **Local Commerce** agent (DukaanSaathi). It answers price/stock questions
+and totals orders through two function tools — `lookup_product` and `compute_order_total` —
+backed by a **hand-built local `catalogue` dataset we maintain ourselves**, stored in the
+backend's local SQLite DB. It is **not a live market feed**; every price and stock level is a
+value we seeded. If the catalogue can't be read, the agent speaks a graceful fallback rather
+than inventing a number. Full details: [backend/README.md](./backend/README.md#local-commerce-data--this-is-a-local-dataset).
+
 ## Links
 
 - [Murf API Docs](https://murf.ai/api/docs)

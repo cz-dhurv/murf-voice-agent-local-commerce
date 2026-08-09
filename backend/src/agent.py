@@ -39,8 +39,8 @@ OBJECTIVES (what a successful call achieves)
 3. Surface a relevant opportunity — mention one scheme, tool, or tactic the user has not asked about but would benefit from. For example, PM SVANidhi, WhatsApp Business catalogue, or Google Business listing.
 
 KNOWLEDGE (what you know, and where it stops)
-You know about: UPI and QR code payments, basic inventory tracking, GST basics, government schemes for small businesses like PM SVANidhi, Mudra Yojana, ONDC, and Digital India, setting up Google Business and WhatsApp Business profiles, and low-cost local marketing ideas.
-You do NOT know: real-time market prices, live stock levels, bank account details, legal precedents, or medical advice. When asked about these, say so honestly.
+You know about: the shop's own catalogue — its items, the shop's own prices, and current stock — which you look up with your tools (never from memory or a guess). You also know about UPI and QR code payments, basic inventory tracking, GST basics, government schemes for small businesses like PM SVANidhi, Mudra Yojana, ONDC, and Digital India, setting up Google Business and WhatsApp Business profiles, and low-cost local marketing ideas.
+You do NOT know: live wholesale or market prices, bank account details, legal precedents, or medical advice. Shop prices come only from the catalogue tool, not from the open market. When asked about something outside this, say so honestly.
 
 LANGUAGE & SCRIPT (most important rule — apply it on every single turn)
 Match the language of the caller's MOST RECENT message, and switch the instant they switch — even if your greeting or earlier replies were in another language. Never keep replying in a language the caller has stopped using.
@@ -51,15 +51,15 @@ Only mix languages if the caller themselves clearly mixes within one sentence (r
 
 GUARDRAILS
 Hard refusals — you must NEVER do these:
-- Never invent a price or a guaranteed delivery date you were not given. You CAN take an order and note the details the caller gives you — just repeat them back and say the shop will confirm the final price and timing.
+- Never invent a price. Quote a price ONLY when the lookup_product or compute_order_total tool gave it to you. If an item is not in the catalogue, say the shop doesn't carry it — do not estimate. Never promise a guaranteed delivery date; note the order and say the shop confirms final price and timing.
 - Never ask for or handle OTP, PIN, Aadhaar number, or bank account numbers.
 - Never give legal or tax advice beyond basic GST information.
 - Never promise that any government scheme application will be approved.
 
 Never claim:
-- That you have access to the shopkeeper's inventory, bank account, or sales data.
+- That you have access to the shopkeeper's bank account or sales data. (You DO have the shop's product catalogue — items, shop prices, stock — through your tools.)
 - That a specific scheme application will be approved.
-- Current market prices for any goods.
+- To know live wholesale or market prices. The only prices you quote are the shop's own catalogue prices.
 
 Escalation — when something is outside your scope, say so honestly and direct the user to:
 - A Chartered Accountant for tax or legal matters.
@@ -85,12 +85,16 @@ You can remember callers between calls using your tools: lookup_caller, save_cal
 - If the caller asks you to forget them or delete their data, call forget_caller and confirm it is done.
 Do not read tool names or JSON out loud. Just speak naturally about what you remember.
 
-ORDERS
-Callers can order from their local shop through you. This is a normal, welcome request — never refuse it.
-- When the caller wants to order or reorder something, gather what they want and, if they mention it, when they want it delivered. Repeat the order back in one short line so they can confirm.
-- Once they confirm, call place_order with the items (and delivery slot if given). Then tell them the order is noted and the shop will confirm the final price and timing.
-- For a RETURNING caller with a usual order, offer it first: "पिछली बार आपने ५ किलो आटा मँगवाया था — वही फिर से भेज दूँ?" If yes, still call place_order.
-- Do not quote a price or a guaranteed delivery time you were not given. Noting the order is your job; the shop confirms price and stock.
+ORDERS & PRICES
+Callers can ask prices, check availability, and order from the shop through you. This is a normal, welcome request — never refuse it.
+- For ANY price or "do you have it" question, call lookup_product. Speak the answer naturally — "आटा ४२ रुपये किलो, स्टॉक में है" — never read raw numbers or field names aloud. If it comes back not carried, say so plainly and do not estimate. If it comes back ambiguous, ask which one they mean (e.g. "sunflower oil या mustard oil?").
+- When they want to order, gather the items and quantities, then call compute_order_total for the subtotal at shop prices. Read the subtotal out, and if anything is out of stock or not carried, tell them that too — never quietly leave it off.
+- Before confirming, ALWAYS ask two things unless you already have them: their preferred delivery slot (e.g. "किस समय डिलीवरी चाहिए — सुबह या शाम?") and a delivery contact — a name and phone number the shop can reach them on. Both are needed so the shop can actually deliver.
+- Repeat the full order back in one short line — items, subtotal, delivery slot, and contact — so they can confirm.
+- Once they confirm, call place_order with the items, delivery_slot, and contact. Then tell them it's noted and the shop will confirm the final price and timing.
+- For a RETURNING caller, you may already remember their usual order, slot, and contact — offer those instead of asking again: "पिछली बार आपने ५ किलो आटा सुबह भेजा था, फ़ोन वही — वही फिर से भेज दूँ?" Still check today's price and stock with the tools, and still call place_order. Only ask for a slot or contact you do not already have.
+- A phone number given for delivery is ordinary order info — you may take and remember it. But NEVER ask for or save an OTP, PIN, Aadhaar, or bank account number.
+- If a tool comes back with an error (it couldn't read the catalogue), tell the caller you can't check that right now and to try again in a moment. Never make up a price or pretend an item is in stock.
 """
 
 
@@ -101,6 +105,8 @@ STT_KEYTERMS = [
     "KYC", "Aadhaar", "GST", "ONDC", "PM SVANidhi", "Mudra Yojana",
     "Udyam", "MSME", "WhatsApp Business", "Google Business", "catalogue",
     "DukaanSaathi", "rupees",
+    # catalogue items — boost so orders/prices transcribe correctly
+    "atta", "basmati", "toor dal", "mustard oil", "sunflower oil", "detergent",
 ]
 
 
@@ -165,23 +171,102 @@ class Assistant(Agent):
         return "Saved. You will remember this caller next time they call."
 
     @function_tool
+    async def lookup_product(
+        self,
+        context: RunContext,
+        item_name: str,
+        quantity: float = 1,
+    ) -> dict:
+        """Look up an item in the shop's catalogue: the shop's own price and stock.
+
+        Call this for ANY question about buying, ordering, availability, stock, or
+        price — e.g. "rice price", "1 kg rice", "do you have onions", "how much for
+        2 litres of oil". The price returned is the shop's own set price, not a live
+        market rate. If the item is not in the catalogue, tell the caller it isn't
+        carried — never invent a price. If the result is "ambiguous", ask the caller
+        which of the listed items they mean instead of guessing.
+
+        Args:
+            item_name: The item in plain words, e.g. "rice", "mustard oil", "soap".
+            quantity: How many units they want (default 1); used for the line total.
+        """
+        try:
+            return await memory.alookup_product(item_name, quantity)
+        except Exception:
+            logger.exception("lookup_product failed for %r", item_name)
+            return {
+                "status": "error",
+                "message": (
+                    "The catalogue could not be read right now. Tell the caller you're "
+                    "having trouble checking that and to try again in a moment."
+                ),
+            }
+
+    @function_tool
+    async def compute_order_total(
+        self,
+        context: RunContext,
+        order_json: str,
+    ) -> dict:
+        """Total up an order using the shop's catalogue prices.
+
+        Call this once the caller has listed the items and quantities they want, to
+        quote a subtotal before confirming. It flags anything out of stock, unknown,
+        or ambiguous in `issues` instead of dropping it silently — read those issues
+        out to the caller. Do NOT add a guaranteed delivery time; the shop confirms
+        final price and timing.
+
+        Args:
+            order_json: A JSON array of items, each with item_name and quantity, e.g.
+                '[{"item_name": "rice", "quantity": 2}, {"item_name": "sugar", "quantity": 1}]'.
+        """
+        try:
+            items = json.loads(order_json)
+            if not isinstance(items, list):
+                raise ValueError("order must be a JSON array")
+        except (json.JSONDecodeError, ValueError):
+            return {
+                "status": "error",
+                "message": (
+                    "Could not read the order. Ask the caller to list the items and "
+                    "quantities again."
+                ),
+            }
+        try:
+            return await memory.acompute_order_total(items)
+        except Exception:
+            logger.exception("compute_order_total failed")
+            return {
+                "status": "error",
+                "message": (
+                    "The catalogue could not be read right now. Tell the caller you're "
+                    "having trouble totalling that up and to try again in a moment."
+                ),
+            }
+
+    @function_tool
     async def place_order(
         self,
         context: RunContext,
         items: str,
         delivery_slot: str = "",
+        contact: str = "",
     ) -> str:
         """Record an order the caller just placed with their local shop.
 
-        Call this only AFTER you have repeated the order back and the caller
-        confirmed it. Do NOT quote a price or a guaranteed delivery time. This
-        also remembers the order as the caller's usual, so you can offer it back
-        next time — placing the order is the caller's own request, so no separate
-        "may I remember this?" is needed for the order itself.
+        Call this only AFTER you have collected the delivery slot and contact,
+        repeated the order back, and the caller confirmed it. Do NOT quote a price
+        or a guaranteed delivery time. This also remembers the order, slot, and
+        contact as the caller's usual, so you can offer them back next time —
+        placing the order is the caller's own request, so no separate "may I
+        remember this?" is needed for the order itself.
 
         Args:
             items: What they ordered, in plain words, e.g. "5 kg atta, 2 kg sugar".
-            delivery_slot: When they want it, if they said, e.g. "morning" or "kal shaam".
+            delivery_slot: When they want it, e.g. "morning" or "kal shaam".
+            contact: Name and phone the shop can reach them on for delivery, e.g.
+                "Ramesh, 98765 43210". A delivery phone number is ordinary order
+                info; never pass an OTP, PIN, Aadhaar, or bank account number here.
         """
         if not self.user_id:
             # No stable id — still acknowledge the order, just can't remember it.
@@ -191,8 +276,13 @@ class Assistant(Agent):
         facts = {"last_order": items}
         if delivery_slot:
             facts["delivery_slot"] = delivery_slot
+        if contact:
+            facts["contact"] = contact
         await memory.aupsert_caller(self.user_id, facts=facts)
-        logger.info("order placed for %s: %s (slot=%s)", self.user_id, items, delivery_slot or "-")
+        logger.info(
+            "order placed for %s: %s (slot=%s contact=%s)",
+            self.user_id, items, delivery_slot or "-", contact or "-",
+        )
         return (
             "Order noted. Tell the caller the shop will confirm the final price and timing, "
             "and that you'll remember this as their usual for next time."

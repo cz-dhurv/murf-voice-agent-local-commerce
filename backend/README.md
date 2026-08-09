@@ -176,6 +176,35 @@ Default is Google Gemini. To switch:
 - **Gemini (default):** Set `GOOGLE_API_KEY` in `.env.local`
 - **OpenAI:** Set `OPENAI_API_KEY`, install `livekit-agents[openai]`, and change the `llm=` argument
 
+## Local Commerce data — this is a local dataset
+
+The agent quotes prices and stock through two function tools — `lookup_product`
+and `compute_order_total` — that read a **`catalogue` table in the local SQLite
+database** (`data/memory.db`). This catalogue is a **hand-built local dataset that
+we maintain ourselves — it is not a live external feed** and does not reflect real
+wholesale or market rates. Every price and stock level is a value we seeded.
+
+- The seed lives in `_SEED_CATALOGUE` in [`src/memory.py`](src/memory.py) (~18 staples
+  across categories) and is inserted on first run via `INSERT OR IGNORE`, so a
+  shopkeeper's later edits to the DB survive restarts. Delete `data/memory.db` to reseed.
+- `lookup_product` returns the shop's own price, the unit, and whether the item is in
+  stock. Unknown items return `not_found` (the agent says it's not carried — it never
+  invents a price); terms matching more than one item return `ambiguous` (the agent asks
+  which one).
+- `compute_order_total` sums an order at those prices and returns any out-of-stock,
+  unknown, or ambiguous items in `issues` rather than dropping them silently.
+- **Graceful failure:** if the catalogue can't be read (locked or missing DB, corrupt
+  row), both tools return an error result and the agent speaks a "having trouble checking
+  that right now" fallback instead of crashing or inventing a number. To demo this, rename
+  or lock `data/memory.db` mid-call.
+
+Run the store's self-check (seeds a throwaway DB and asserts lookup, ambiguity,
+out-of-stock, and totalling all behave):
+
+```bash
+uv run python src/memory.py
+```
+
 ## Testing
 
 The project includes an eval suite based on the LiveKit Agents [testing framework](https://docs.livekit.io/agents/build/testing/):

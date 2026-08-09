@@ -183,6 +183,8 @@ type Dict = {
   memTool2Desc: string;
   memTool3Desc: string;
   memTool4Desc: string;
+  memTool5Desc: string;
+  memTool6Desc: string;
   memConsentTitle: string;
   memConsentSub: string;
   memPersistTitle: string;
@@ -454,6 +456,9 @@ const en: Dict = {
   memTool2Desc: 'Save a name, language and business facts — only after the caller agrees.',
   memTool3Desc: 'Delete everything saved about a caller when they ask to be forgotten.',
   memTool4Desc: 'Record an order the caller places and remember it as their usual for next time.',
+  memTool5Desc:
+    'Look up an item in the shop’s own catalogue — its price and whether it’s in stock.',
+  memTool6Desc: 'Total an order at shop prices, flagging anything out of stock or not carried.',
   memConsentTitle: 'Consent before saving',
   memConsentSub:
     'The agent always asks “क्या मैं यह आपके लिए याद रख लूँ?” before saving. Say no and nothing is stored. OTPs, PINs, Aadhaar and bank numbers are never saved.',
@@ -726,6 +731,9 @@ const hi: Dict = {
   memTool3Desc: 'जब कॉलर कहे कि उसे भूल जाओ, तो उसका सहेजा सब कुछ मिटा देता है।',
   memTool4Desc:
     'कॉलर का दिया ऑर्डर दर्ज करता है और अगली बार के लिए उसे उसकी usual के रूप में याद रखता है।',
+  memTool5Desc: 'दुकान की अपनी सूची में सामान ढूँढता है — उसका दाम और स्टॉक में है या नहीं।',
+  memTool6Desc:
+    'दुकान के दाम पर ऑर्डर का कुल जोड़ता है, और जो स्टॉक में नहीं या नहीं मिलता उसे बताता है।',
   memConsentTitle: 'सहेजने से पहले सहमति',
   memConsentSub:
     'एजेंट सहेजने से पहले हमेशा पूछता है “क्या मैं यह आपके लिए याद रख लूँ?”। आप मना करें तो कुछ नहीं सहेजा जाता। OTP, PIN, आधार और बैंक नंबर कभी नहीं सहेजे जाते।',

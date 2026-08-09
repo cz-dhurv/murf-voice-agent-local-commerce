@@ -637,8 +637,20 @@ function MemoryTools({ tr }: { tr: Tr }) {
     {
       name: 'place_order',
       desc: tr.memTool4Desc,
-      input: 'items, delivery_slot',
+      input: 'items, delivery_slot, contact',
       output: 'confirmation',
+    },
+    {
+      name: 'lookup_product',
+      desc: tr.memTool5Desc,
+      input: 'item_name, quantity',
+      output: 'unit_price, in_stock, line_total',
+    },
+    {
+      name: 'compute_order_total',
+      desc: tr.memTool6Desc,
+      input: 'order_json',
+      output: 'line_items, total, issues',
     },
     {
       name: 'forget_caller',
