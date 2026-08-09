@@ -1,0 +1,161 @@
+{
+  "anchor_schema_version": 1,
+  "oobo_version": "2.0.0",
+  "commit_hash": "1d4bc424669ed55ffab7171573a1c1d9dfb7d66c",
+  "branch": "day4",
+  "author": "cz-dhurv <dhruvkr209@example.com>",
+  "author_type": "agent",
+  "contributors": [
+    {
+      "name": "cz-dhurv <dhruvkr209@example.com>",
+      "role": "human"
+    },
+    {
+      "name": "claude",
+      "role": "agent"
+    }
+  ],
+  "committed_at": 1786303254,
+  "message": "fix(day4): token-baked caller attributes + order-first identity",
+  "files_changed": [
+    "DOCS/UI/ChatGPT Image Aug 9, 2026, 04_15_23 AM.png",
+    "DOCS/UI/ui.png",
+    "backend/src/agent.py",
+    "frontend/app/api/token/route.ts",
+    "frontend/components/app/app.tsx",
+    "frontend/components/app/dashboard.tsx",
+    "frontend/components/app/dukaan-experience.tsx",
+    "frontend/lib/i18n.ts",
+    "frontend/lib/utils.ts"
+  ],
+  "added": 143,
+  "deleted": 52,
+  "file_changes": [
+    {
+      "path": "DOCS/UI/ChatGPT Image Aug 9, 2026, 04_15_23 AM.png",
+      "added": 0,
+      "deleted": 0,
+      "attribution": "human"
+    },
+    {
+      "path": "DOCS/UI/ui.png",
+      "added": 0,
+      "deleted": 0,
+      "attribution": "human"
+    },
+    {
+      "path": "backend/src/agent.py",
+      "added": 69,
+      "deleted": 15,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/app/api/token/route.ts",
+      "added": 9,
+      "deleted": 2,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/app/app.tsx",
+      "added": 2,
+      "deleted": 3,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/app/dashboard.tsx",
+      "added": 6,
+      "deleted": 0,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/components/app/dukaan-experience.tsx",
+      "added": 4,
+      "deleted": 24,
+      "attribution": "human"
+    },
+    {
+      "path": "frontend/lib/i18n.ts",
+      "added": 12,
+      "deleted": 8,
+      "attribution": "ai",
+      "agent": "claude"
+    },
+    {
+      "path": "frontend/lib/utils.ts",
+      "added": 41,
+      "deleted": 0,
+      "attribution": "human"
+    }
+  ],
+  "ai_added": 81,
+  "ai_deleted": 23,
+  "human_added": 62,
+  "human_deleted": 29,
+  "ai_percentage": 53.333333333333336,
+  "session_ids": [
+    "a3c4a0b8-5912-479c-b4eb-b167db97094a"
+  ],
+  "transparency_mode": "on",
+  "turns": [
+    {
+      "id": "t4c9efbe7005dbede",
+      "session_id": "a3c4a0b8-5912-479c-b4eb-b167db97094a",
+      "source": "claude",
+      "turn_index": 2,
+      "tree_hash": "a6f68795234a08e62f3583ae63cf5ace3671c6ca"
+    }
+  ],
+  "session_refs": [
+    {
+      "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+      "turn_uids": [
+        "c0b6c30c-5201-5e83-9277-2235213d4c10",
+        "23cd66cd-8858-5e0a-b885-d16419fa8eba",
+        "011b6e29-a726-5659-9456-aa24d9bd240d"
+      ]
+    }
+  ],
+  "session_links": [
+    {
+      "session_id": "a3c4a0b8-5912-479c-b4eb-b167db97094a",
+      "agent": "claude",
+      "link_type": "explicit",
+      "input_tokens": 3043126,
+      "output_tokens": 1337620,
+      "cache_read_tokens": 80557099,
+      "cache_creation_tokens": 40960180,
+      "duration_secs": 0,
+      "tool_calls": 505,
+      "files_touched": [
+        "frontend/lib/i18n.ts",
+        "backend/src/agent.py"
+      ],
+      "tool_usage": {
+        "Edit": 8,
+        "Bash": 9,
+        "Read": 2,
+        "AskUserQuestion": 1
+      },
+      "bash_commands": [
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== DOCS tree ===\" && find DOCS -type f | head -50",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/frontend\" && npx tsc --noEmit && echo \"TSC_OK\" && npx eslint lib/i18n.ts && echo \"ESLINT_OK\"",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/backend\" && python -m py_compile src/agent.py && echo \"PY_OK\"",
+        "cd \"/c/Users/maury/Documents/Murf Challenge/backend\" && python -c \"\nimport sqlite3, os\np = os.environ.get('MEMORY_DB_PATH', 'data/memory.db')\ncon = sqlite3.connect(p)\nrows = con.execute('SELECT user_i...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== branch ===\" && git rev-parse --abbrev-ref HEAD && echo \"=== status ===\" && git status --short && echo \"=== diff stat ===\" && git diff --stat &...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== .oobo contents ===\" && find .oobo -maxdepth 2 | head -20 && echo \"=== DOCS contents ===\" && find DOCS -type f && echo \"=== remotes ===\" && git...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && echo \"=== dashboard.tsx diff ===\" && git diff frontend/components/app/dashboard.tsx && echo \"=== scan all diffs for secret-ish tokens ===\" && git diff |...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git add backend/src/agent.py frontend/app/api/token/route.ts frontend/components/app/app.tsx frontend/components/app/dashboard.tsx frontend/components/a...",
+        "cd \"/c/Users/maury/Documents/Murf Challenge\" && git commit -F- <<'EOF'\nfix(day4): token-baked caller attributes + order-first identity\n\nDeliver caller_id + language as LiveKit token attributes so the ..."
+      ],
+      "is_subagent": false,
+      "is_estimated": false
+    }
+  ],
+  "coverage": {
+    "tools": [
+      "claude"
+    ],
+    "recorded_at": 1786303261
+  }
+}
