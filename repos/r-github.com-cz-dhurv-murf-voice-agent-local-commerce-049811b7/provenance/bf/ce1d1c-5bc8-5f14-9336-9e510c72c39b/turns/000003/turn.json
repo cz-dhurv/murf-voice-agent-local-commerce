@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "turn_uid": "5d6d8568-bd4a-585c-bacf-a29dafad07b4",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 3,
+  "native_turn_index": 3,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "push the changes as day 4",
+  "started_at": 1786302981,
+  "ended_at": 1786303334,
+  "tokens": {
+    "input": 225930,
+    "cache_read": 1014725,
+    "cache_creation": 900473,
+    "output": 8425
+  },
+  "tool_names": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "capture_gap": false
+}

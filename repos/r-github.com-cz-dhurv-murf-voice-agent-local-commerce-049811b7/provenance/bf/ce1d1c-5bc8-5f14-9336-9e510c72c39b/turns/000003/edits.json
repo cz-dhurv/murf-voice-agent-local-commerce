@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "backend/src/agent.py",
+      "pre_blob": "baaee2d2d8ed778151dda88fd59a282968cb5a78",
+      "post_blob": "baaee2d2d8ed778151dda88fd59a282968cb5a78"
+    },
+    {
+      "path": "frontend/lib/i18n.ts",
+      "pre_blob": "3a4499981f31cd853690a6e13334373770734f27",
+      "post_blob": "3a4499981f31cd853690a6e13334373770734f27"
+    }
+  ]
+}
