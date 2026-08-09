@@ -274,7 +274,11 @@
         "5d6d8568-bd4a-585c-bacf-a29dafad07b4",
         "c0b6c30c-5201-5e83-9277-2235213d4c10",
         "23cd66cd-8858-5e0a-b885-d16419fa8eba",
-        "011b6e29-a726-5659-9456-aa24d9bd240d"
+        "011b6e29-a726-5659-9456-aa24d9bd240d",
+        "d8d00c78-db20-518b-8923-4c4e895cad4b",
+        "bd9cb6c6-3e97-59b6-955c-ebc100c73d9b",
+        "898229e4-f9da-5baa-8e92-29d8d23ee009",
+        "af7450dc-7176-54cd-8d12-f4fb5ec6d991"
       ]
     }
   ],
@@ -319,13 +323,13 @@
         "frontend/app/dashboard/callers/page.tsx"
       ],
       "tool_usage": {
-        "Write": 20,
-        "TaskUpdate": 15,
-        "Read": 68,
-        "Glob": 2,
         "AskUserQuestion": 1,
-        "Edit": 36,
         "Bash": 44,
+        "Read": 68,
+        "Edit": 36,
+        "TaskUpdate": 15,
+        "Glob": 2,
+        "Write": 20,
         "Grep": 8,
         "TaskCreate": 9
       },
@@ -359,9 +363,9 @@
         "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git checkout -b day5 && git add backend/src/agent.py backend/src/memory.py frontend/components/app/dashboard.tsx frontend/lib/i18n.ts README.md backend/...",
         "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git diff --cached -G'(API_KEY|SECRET|sk-|AIza|password|token\\s*=)' -i --stat && echo \"---GREP STAGED FOR SECRET-LIKE---\" && git diff --cached -i | grep ...",
         "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\" && git commit -m \"$(cat <<'EOF'\nfeat(day5): catalogue lookup + order-total tools over local shop dataset\n\nTwo real function-call tools backed by a hand-bui...",
-        "cd \"C:/Users/maury/Documents/Murf Challenge/frontend/app/dashboard\" && find . -name \"page.tsx\" | sort",
-        "cd \"C:/Users/maury/Documents/Murf Challenge/frontend\" && rm \"components/app/dashboard.tsx\" && echo \"deleted\" && ls components/app/",
-        "cd \"C:/Users/maury/Documents/Murf Challenge/frontend\" && npx tsc --noEmit 2>&1 | head -50; echo \"---EXIT:$?---\"",
+        "cd \"frontend/app/dashboard\" && find . -name \"page.tsx\" | sort",
+        "cd \"frontend\" && rm \"components/app/dashboard.tsx\" && echo \"deleted\" && ls components/app/",
+        "cd \"frontend\" && npx tsc --noEmit 2>&1 | head -50; echo \"---EXIT:$?---\"",
         "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx eslint app/dashboard 2>&1 | head -60; echo \"---EXIT:${PIPESTATUS[0]}---\"",
         "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && npx eslint app/dashboard --fix 2>&1 | head -40; echo \"---EXIT:${PIPESTATUS[0]}---\"",
         "cd \"C:\\Users\\maury\\Documents\\Murf Challenge\\frontend\" && echo \"== tsc ==\" && npx tsc --noEmit 2>&1 | head -30; echo \"tsc-exit:${PIPESTATUS[0]}\" && echo \"== eslint (app + components) ==\" && npx eslint ...",
