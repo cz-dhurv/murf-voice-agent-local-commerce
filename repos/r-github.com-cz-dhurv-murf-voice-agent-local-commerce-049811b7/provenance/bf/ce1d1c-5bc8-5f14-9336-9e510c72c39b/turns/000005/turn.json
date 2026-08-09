@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "turn_uid": "bd4aec37-fdc8-54b9-b4ad-c89d301afafa",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 5,
+  "native_turn_index": 5,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "can we put to main branch as i submitted this url: https://github.com/cz-dhurv/murf-voice-agent-local-commerce",
+  "started_at": 1786303528,
+  "ended_at": 1786303606,
+  "tokens": {
+    "input": 13,
+    "cache_read": 413595,
+    "cache_creation": 576051,
+    "output": 3805
+  },
+  "tool_names": [
+    "Bash",
+    "Bash"
+  ],
+  "capture_gap": false
+}
