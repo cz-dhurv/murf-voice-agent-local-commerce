@@ -1,0 +1,8 @@
+schema_version = 1
+
+[project]
+id = "r:github.com/cz-dhurv/murf-voice-agent-local-commerce"
+
+[anchors]
+
+[privacy]

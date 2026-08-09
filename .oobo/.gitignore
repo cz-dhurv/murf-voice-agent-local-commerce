@@ -1,0 +1,6 @@
+# Managed by oobo -- do not edit.
+# Only config is intended to be committed.
+# Secrets (API keys) are never committed.
+*
+!.gitignore
+!config
