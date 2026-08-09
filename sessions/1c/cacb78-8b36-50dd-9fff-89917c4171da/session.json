@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "session_uid": "1ccacb78-8b36-50dd-9fff-89917c4171da",
+  "native_session_ids": [
+    "af2f4143-e27b-4403-95bf-1e8a8f81f032"
+  ],
+  "tool": "claude",
+  "model": "claude-opus-4-8",
+  "origin_repo_id": "r:github.com/cz-dhurv/murf-voice-agent-local-commerce",
+  "repos_touched": [
+    "r:github.com/cz-dhurv/murf-voice-agent-local-commerce"
+  ],
+  "turn_count": 0,
+  "started_at": 1786308857,
+  "updated_at": 1786308859
+}
