@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "post_blob": "a164ddbe222f7068d000f412b1945115a11edbfe"
+    },
+    {
+      "path": "backend/README.md",
+      "post_blob": "35c7288ac4ec2314af7a5baf674da1e292b74237"
+    },
+    {
+      "path": "backend/src/agent.py",
+      "post_blob": "d4edfb7f2cee21c462aaae0d73572054ce0485a8"
+    },
+    {
+      "path": "backend/src/memory.py",
+      "post_blob": "3b3939513d1290ec64e5c3c76cfd0891628422cd"
+    },
+    {
+      "path": "frontend/components/app/dashboard.tsx",
+      "post_blob": "9b0309d38dba3080723f73fbd9912b024935a455"
+    },
+    {
+      "path": "frontend/lib/i18n.ts",
+      "post_blob": "0e94ec4d5d5dc65cd03cfd69665972d6eda3d4c1"
+    }
+  ]
+}
