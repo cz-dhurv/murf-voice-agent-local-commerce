@@ -16,6 +16,10 @@ KMS
 falcon_voices.json
 falcon2.json
 
+# caller memory DB — holds PII, never commit
+data/
+*.db
+
 # Claude Code
 .claude/settings.local.json
 .claude/worktrees/

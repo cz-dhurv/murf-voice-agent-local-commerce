@@ -1,3 +1,5 @@
+import type { Language } from '@/lib/i18n';
+
 export interface AppConfig {
   pageTitle: string;
   pageDescription: string;
@@ -13,6 +15,9 @@ export interface AppConfig {
   accent?: string;
   logoDark?: string;
   accentDark?: string;
+
+  // default UI language before the user picks one (persisted client-side)
+  defaultLanguage?: Language;
 
   audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura';
   audioVisualizerColor?: `#${string}`;
@@ -48,6 +53,8 @@ export const APP_CONFIG_DEFAULTS: AppConfig = {
   logoDark: '/dukaan-logo.svg',
   accentDark: '#FB923C',
   startButtonText: 'Baat shuru karein',
+
+  defaultLanguage: 'en',
 
   // saffron voice bars — matches the shopkeeper brand
   audioVisualizerType: 'bar',
