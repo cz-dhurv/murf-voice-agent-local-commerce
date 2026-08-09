@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "backend\\src\\agent.py"
+    },
+    {
+      "path": "frontend\\lib\\i18n.ts"
+    }
+  ]
+}

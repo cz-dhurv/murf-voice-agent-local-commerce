@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "turn_uid": "011b6e29-a726-5659-9456-aa24d9bd240d",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 0,
+  "native_turn_index": 0,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "it starts with Hello! I am DukaanSaathi. I can help you with digital payments, GST, government schemes, and growing your business online. May I know your nam...",
+  "started_at": 1786301684,
+  "ended_at": 1786302232,
+  "tokens": {
+    "input": 411147,
+    "cache_read": 2094358,
+    "cache_creation": 1179698,
+    "output": 22516
+  },
+  "tool_names": [
+    "Read",
+    "Read",
+    "Bash",
+    "AskUserQuestion",
+    "Edit",
+    "Edit",
+    "Edit",
+    "Edit",
+    "Edit",
+    "Edit",
+    "Edit",
+    "Edit",
+    "Bash",
+    "Bash"
+  ],
+  "capture_gap": false
+}
