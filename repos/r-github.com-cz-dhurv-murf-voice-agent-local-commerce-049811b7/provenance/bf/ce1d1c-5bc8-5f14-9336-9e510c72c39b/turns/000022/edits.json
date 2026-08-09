@@ -1,0 +1,37 @@
+{
+  "files": [
+    {
+      "path": "frontend\\app\\dashboard\\agents\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\callers\\[id]\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\callers\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\catalogue\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\integrations\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\live\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\orders\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\data.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\kit.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\shell.tsx"
+    }
+  ]
+}
