@@ -1,0 +1,18 @@
+{
+  "files": [
+    {
+      "path": "backend/src/agent.py",
+      "pre_blob": "ea74829131d608da26aa4f54ea8b583cda3fb258",
+      "post_blob": "ea74829131d608da26aa4f54ea8b583cda3fb258"
+    },
+    {
+      "path": "frontend/components/app/dashboard.tsx",
+      "pre_blob": "b6a1ab14bedb3158cf6481799d0f891b7b50cf7c",
+      "post_blob": "b6a1ab14bedb3158cf6481799d0f891b7b50cf7c"
+    },
+    {
+      "path": "frontend/lib/i18n.ts",
+      "post_blob": "3a4499981f31cd853690a6e13334373770734f27"
+    }
+  ]
+}

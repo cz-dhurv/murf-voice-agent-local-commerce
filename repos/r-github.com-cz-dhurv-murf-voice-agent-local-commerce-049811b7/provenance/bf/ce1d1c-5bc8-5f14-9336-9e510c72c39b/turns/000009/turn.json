@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "turn_uid": "5c909e98-2235-5879-bf62-f5d2beb9665f",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 9,
+  "native_turn_index": 9,
+  "source": "claude",
+  "trigger": "here is the implementation plain # Day 5 Implementation Plan — Local Commerce Voice Agent ### Track: Local Commerce | Stack: LiveKit + Python (extends Day 4 ...",
+  "started_at": 1786305337,
+  "ended_at": 1786305457,
+  "tokens": {
+    "input": null,
+    "cache_read": null,
+    "cache_creation": null,
+    "output": null
+  },
+  "capture_gap": false
+}
