@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "turn_uid": "23cd66cd-8858-5e0a-b885-d16419fa8eba",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 1,
+  "native_turn_index": 1,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "it directly starts with \"Hello Dhruv! Welcome back. How are you doing today?\" what if im new user. check for logic corrections use ponytail plugins",
+  "started_at": 1786302357,
+  "ended_at": 1786302534,
+  "tokens": {
+    "input": 79056,
+    "cache_read": 196818,
+    "cache_creation": 409391,
+    "output": 16682
+  },
+  "tool_names": [
+    "Bash"
+  ],
+  "capture_gap": false
+}
