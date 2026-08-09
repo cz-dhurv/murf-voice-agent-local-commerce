@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "turn_uid": "d8d00c78-db20-518b-8923-4c4e895cad4b",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 23,
+  "native_turn_index": 23,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summa...",
+  "started_at": 1786316227,
+  "ended_at": 1786316229,
+  "tokens": {
+    "input": 4,
+    "cache_read": 0,
+    "cache_creation": 64308,
+    "output": 312
+  },
+  "capture_gap": false
+}
