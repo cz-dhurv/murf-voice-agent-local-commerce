@@ -91,6 +91,47 @@ export function getStyles(appConfig: AppConfig) {
 }
 
 /**
+ * Stable per-browser id so the agent recognizes a returning caller across calls.
+ * Shared by the widget and the token source so both read/create the SAME id.
+ */
+export function getCallerId(): string {
+  const KEY = 'dukaan-caller-id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+/**
+ * Primary token source: bakes `caller_id` and `language` into the LiveKit token
+ * as participant attributes, so they reach the agent atomically at join instead
+ * of being set fire-and-forget after connect (which raced the greeting/first save).
+ * localStorage is read at fetch time, so it reflects the current language toggle.
+ */
+export function getCallerTokenSource(appConfig: AppConfig) {
+  return TokenSource.custom(async () => {
+    const roomConfig = appConfig.agentName
+      ? { agents: [{ agent_name: appConfig.agentName }] }
+      : undefined;
+    const res = await fetch('/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        room_config: roomConfig,
+        participant_attributes: {
+          caller_id: getCallerId(),
+          language: localStorage.getItem('dukaan-lang') || '',
+        },
+      }),
+    });
+    if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
+    return await res.json();
+  });
+}
+
+/**
  * Get a token source for a sandboxed LiveKit session
  * @param appConfig - The app configuration
  * @returns A token source for a sandboxed LiveKit session

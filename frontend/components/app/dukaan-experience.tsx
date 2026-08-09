@@ -28,17 +28,6 @@ import { cn } from '@/lib/shadcn/utils';
 
 const ACTIVE_STATES = ['listening', 'thinking', 'speaking'];
 
-/** Stable per-browser id so the agent can recognize a returning caller across calls. */
-function getCallerId(): string {
-  const KEY = 'dukaan-caller-id';
-  let id = localStorage.getItem(KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(KEY, id);
-  }
-  return id;
-}
-
 type StatusInfo = {
   title: string;
   sub: string;
@@ -71,7 +60,7 @@ export function DukaanExperience() {
   const { isConnected, start, end } = session;
   const { state, audioTrack } = useVoiceAssistant();
   const { messages } = useSessionMessages(session);
-  const { tr, language } = useLanguage();
+  const { tr } = useLanguage();
 
   const [hasStarted, setHasStarted] = useState(false);
   const [hasEnded, setHasEnded] = useState(false);
@@ -130,23 +119,14 @@ export function DukaanExperience() {
     }
 
     try {
+      // caller_id + language ride in on the token (see getCallerTokenSource), so
+      // the agent has them at join — no fire-and-forget setAttributes race.
       await start();
-      // Hint the agent which language to open its greeting in (auto-detect handles the rest)
-      // and give it a stable caller id so it can recognize a returning caller.
-      // ponytail: set-after-connect can race the greeting; backend polls briefly for it.
-      try {
-        await session.room.localParticipant.setAttributes({
-          language,
-          caller_id: getCallerId(),
-        });
-      } catch {
-        // non-fatal — agent falls back to a new-caller Hinglish greeting
-      }
     } catch {
       setHasStarted(false);
       setHasEnded(true);
     }
-  }, [start, session.room, language]);
+  }, [start]);
 
   const endCall = useCallback(() => {
     end();

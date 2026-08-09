@@ -635,6 +635,12 @@ function MemoryTools({ tr }: { tr: Tr }) {
       output: 'confirmation',
     },
     {
+      name: 'place_order',
+      desc: tr.memTool4Desc,
+      input: 'items, delivery_slot',
+      output: 'confirmation',
+    },
+    {
       name: 'forget_caller',
       desc: tr.memTool3Desc,
       input: 'user_id',

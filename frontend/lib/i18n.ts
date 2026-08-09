@@ -182,6 +182,7 @@ type Dict = {
   memTool1Desc: string;
   memTool2Desc: string;
   memTool3Desc: string;
+  memTool4Desc: string;
   memConsentTitle: string;
   memConsentSub: string;
   memPersistTitle: string;
@@ -296,7 +297,7 @@ const en: Dict = {
   heroTitle1: 'AI Voice Agent for',
   heroTitle2: 'Bharat',
   heroSubtitle:
-    'Empowering India’s shopkeepers with a 24/7 voice assistant that speaks their language and gives real answers — UPI, GST, sarkari yojana and going online.',
+    'Empowering India’s shopkeepers with a 24/7 voice assistant that speaks their language — order from your local shop, and get real help with UPI, GST, sarkari yojana and going online.',
   heroCall: 'Call the Voice Agent',
   heroDemo: 'Watch Demo',
   stat247: '24/7',
@@ -321,15 +322,15 @@ const en: Dict = {
   live: 'Live',
   securePrivate: 'Secure & Private Conversation',
   tryAsking: 'Try asking about:',
-  ask1: 'How do I set up a UPI QR code?',
+  ask1: 'Order 5 kg atta from my shop',
   ask2: 'What is GST and do I need it?',
   ask3: 'Tell me about PM SVANidhi',
-  ask4: 'How to list my shop on WhatsApp Business?',
+  ask4: 'Reorder my usual for tomorrow morning',
   speakTip: 'Tip: Just speak naturally, like talking to a real person.',
 
   wReadyTitle: 'DukaanSaathi',
   wReadySub:
-    'Your digital shop companion. UPI, GST, sarkari yojana and online business — learn it all just by speaking.',
+    'Your local shop companion. Order your usual, or get help with UPI, GST, sarkari yojana and going online — all just by speaking.',
   wStart: 'Start the conversation',
   wStartHint: 'Just speak your question — in Hindi or English.',
   wConnecting: 'Connecting to DukaanSaathi…',
@@ -452,6 +453,7 @@ const en: Dict = {
   memTool1Desc: 'Recall what’s known about the caller currently on the line.',
   memTool2Desc: 'Save a name, language and business facts — only after the caller agrees.',
   memTool3Desc: 'Delete everything saved about a caller when they ask to be forgotten.',
+  memTool4Desc: 'Record an order the caller places and remember it as their usual for next time.',
   memConsentTitle: 'Consent before saving',
   memConsentSub:
     'The agent always asks “क्या मैं यह आपके लिए याद रख लूँ?” before saving. Say no and nothing is stored. OTPs, PINs, Aadhaar and bank numbers are never saved.',
@@ -568,7 +570,7 @@ const hi: Dict = {
   heroTitle1: 'AI वॉइस एजेंट',
   heroTitle2: 'भारत के लिए',
   heroSubtitle:
-    'भारत के दुकानदारों के लिए 24/7 वॉइस असिस्टेंट, जो आपकी भाषा में बात करता है और सही जानकारी देता है — UPI, GST, सरकारी योजना और ऑनलाइन बिज़नेस।',
+    'भारत के दुकानदारों के लिए 24/7 वॉइस असिस्टेंट, जो आपकी भाषा में बात करता है — अपनी दुकान से सामान मँगवाएँ, और UPI, GST, सरकारी योजना और ऑनलाइन बिज़नेस में मदद पाएँ।',
   heroCall: 'वॉइस एजेंट से बात करें',
   heroDemo: 'डेमो देखें',
   stat247: '24/7',
@@ -593,15 +595,15 @@ const hi: Dict = {
   live: 'लाइव',
   securePrivate: 'सुरक्षित और निजी बातचीत',
   tryAsking: 'ये पूछकर देखें:',
-  ask1: 'UPI QR कोड कैसे बनाएँ?',
+  ask1: '5 किलो आटा मेरी दुकान से मँगवा दो',
   ask2: 'GST क्या है और क्या मुझे इसकी ज़रूरत है?',
   ask3: 'PM SVANidhi योजना के बारे में बताइए',
-  ask4: 'WhatsApp Business पर दुकान कैसे लिस्ट करें?',
+  ask4: 'मेरा रोज़ का सामान कल सुबह भेज दो',
   speakTip: 'सुझाव: बस सहज होकर बोलिए, जैसे किसी असली व्यक्ति से बात कर रहे हों।',
 
   wReadyTitle: 'दुकानसाथी',
   wReadySub:
-    'आपका डिजिटल दुकान साथी। UPI, GST, सरकारी योजना और ऑनलाइन बिज़नेस — सब कुछ बस बोलकर सीखें।',
+    'आपका दुकान साथी। अपना रोज़ का सामान मँगवाएँ, या UPI, GST, सरकारी योजना और ऑनलाइन बिज़नेस में मदद पाएँ — सब बस बोलकर।',
   wStart: 'बातचीत शुरू करें',
   wStartHint: 'बस अपना सवाल बोलिए — हिंदी या अंग्रेज़ी में।',
   wConnecting: 'दुकानसाथी से जुड़ रहे हैं…',
@@ -722,6 +724,8 @@ const hi: Dict = {
   memTool1Desc: 'अभी लाइन पर मौजूद कॉलर के बारे में जो पता है वह याद करता है।',
   memTool2Desc: 'नाम, भाषा और बिज़नेस की बातें सहेजता है — सिर्फ़ कॉलर की सहमति के बाद।',
   memTool3Desc: 'जब कॉलर कहे कि उसे भूल जाओ, तो उसका सहेजा सब कुछ मिटा देता है।',
+  memTool4Desc:
+    'कॉलर का दिया ऑर्डर दर्ज करता है और अगली बार के लिए उसे उसकी usual के रूप में याद रखता है।',
   memConsentTitle: 'सहेजने से पहले सहमति',
   memConsentSub:
     'एजेंट सहेजने से पहले हमेशा पूछता है “क्या मैं यह आपके लिए याद रख लूँ?”। आप मना करें तो कुछ नहीं सहेजा जाता। OTP, PIN, आधार और बैंक नंबर कभी नहीं सहेजे जाते।',

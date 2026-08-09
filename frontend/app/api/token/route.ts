@@ -43,14 +43,21 @@ export async function POST(req: Request) {
         { ignoreUnknownFields: true }
       );
     }
-      
+
+    // Caller identity + language, baked into the token so they reach the agent as
+    // participant attributes the instant it joins (no fire-and-forget race).
+    const attributes: Record<string, string> = {};
+    for (const [k, v] of Object.entries(body?.participant_attributes ?? {})) {
+      if (typeof v === 'string' && v) attributes[k] = v;
+    }
+
     // Generate participant token
     const participantName = 'user';
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
 
     const participantToken = await createParticipantToken(
-      { identity: participantIdentity, name: participantName },
+      { identity: participantIdentity, name: participantName, attributes },
       roomName,
       roomConfig
     );
