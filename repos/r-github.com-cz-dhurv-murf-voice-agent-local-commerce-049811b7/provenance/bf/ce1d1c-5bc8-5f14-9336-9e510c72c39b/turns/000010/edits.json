@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "pre_blob": "a22f7dfc1c627376ed7a109f4a333079fcf1315a",
+      "post_blob": "a164ddbe222f7068d000f412b1945115a11edbfe"
+    },
+    {
+      "path": "backend\\README.md"
+    },
+    {
+      "path": "backend\\src\\agent.py"
+    },
+    {
+      "path": "backend\\src\\memory.py"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard.tsx"
+    },
+    {
+      "path": "frontend\\lib\\i18n.ts"
+    }
+  ]
+}
