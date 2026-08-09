@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "turn_uid": "45ba3891-bb1c-54cb-ad2b-e7e9786330ab",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 13,
+  "native_turn_index": 13,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "\"file:///c:/Users/maury/Documents/Murf%20Challenge/DOCS/UI/ChatGPT%20Image%20Aug%2010,%202026,%2002_19_13%20AM.png\" You are working on my existing “Voice for...",
+  "started_at": 1786309213,
+  "ended_at": 1786309252,
+  "tokens": {
+    "input": 12,
+    "cache_read": 431238,
+    "cache_creation": 191478,
+    "output": 4872
+  },
+  "tool_names": [
+    "Read",
+    "Glob",
+    "Glob",
+    "Glob"
+  ],
+  "capture_gap": false
+}
