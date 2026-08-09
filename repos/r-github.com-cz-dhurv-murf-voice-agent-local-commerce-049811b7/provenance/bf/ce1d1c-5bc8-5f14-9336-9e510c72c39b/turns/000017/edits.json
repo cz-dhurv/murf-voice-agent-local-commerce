@@ -1,0 +1,58 @@
+{
+  "files": [
+    {
+      "path": "frontend"
+    },
+    {
+      "path": "frontend\\app-config.ts"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\agents\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\analytics\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\integrations\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\knowledge\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\settings\\consent\\page.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\settings\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\dashboard-app.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\demo.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\kit.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\shell.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\language-provider.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\language-toggle.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\theme-toggle.tsx"
+    },
+    {
+      "path": "frontend\\lib\\i18n.ts"
+    }
+  ]
+}
