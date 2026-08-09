@@ -1,0 +1,49 @@
+{
+  "files": [
+    {
+      "path": "frontend\\app\\api\\callers\\route.ts"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\layout.tsx"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\agents-ui\\agent-session-provider.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\dashboard-app.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\data.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\demo.ts"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\kit.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\shell.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dukaan-experience.tsx"
+    },
+    {
+      "path": "frontend\\components\\ui\\select.tsx"
+    },
+    {
+      "path": "frontend\\components\\ui\\tooltip.tsx"
+    },
+    {
+      "path": "frontend\\lib\\shadcn\\utils.ts"
+    },
+    {
+      "path": "frontend\\package.json"
+    }
+  ]
+}
