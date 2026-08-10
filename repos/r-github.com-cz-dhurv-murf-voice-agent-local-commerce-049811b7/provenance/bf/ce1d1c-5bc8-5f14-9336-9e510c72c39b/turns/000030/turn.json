@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "turn_uid": "6a238d27-5cba-5ea9-91d5-93b10b815957",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 30,
+  "native_turn_index": 30,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "as new branch push it to git",
+  "started_at": 1786329248,
+  "ended_at": 1786330186,
+  "tokens": {
+    "input": 16,
+    "cache_read": 625641,
+    "cache_creation": 448011,
+    "output": 3339
+  },
+  "tool_names": [
+    "Bash",
+    "Bash"
+  ],
+  "capture_gap": false
+}
