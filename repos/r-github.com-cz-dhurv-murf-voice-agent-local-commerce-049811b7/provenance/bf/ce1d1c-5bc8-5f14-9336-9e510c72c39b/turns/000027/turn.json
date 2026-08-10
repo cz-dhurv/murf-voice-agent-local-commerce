@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "turn_uid": "07118cb1-9fe4-5bd7-baaa-fd3d49d0810e",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 27,
+  "native_turn_index": 27,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "application not open when try to open via network url it say Runtime TypeError crypto.randomUUID is not a function ../../Murf Challenge/frontend/lib/utils.ts...",
+  "started_at": 1786328304,
+  "ended_at": 1786329084,
+  "tokens": {
+    "input": 33,
+    "cache_read": 1553918,
+    "cache_creation": 821018,
+    "output": 13263
+  },
+  "tool_names": [
+    "Read",
+    "Edit",
+    "Grep",
+    "PowerShell",
+    "Bash",
+    "Bash"
+  ],
+  "capture_gap": false
+}
