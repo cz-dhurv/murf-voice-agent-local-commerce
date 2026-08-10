@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "turn_uid": "b6554228-348a-5bdb-9536-eda820f95198",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 28,
+  "native_turn_index": 28,
+  "source": "claude",
+  "trigger": "application not open when try to open via network url it say Runtime TypeError crypto.randomUUID is not a function ../../Murf Challenge/frontend/lib/utils.ts...",
+  "started_at": 1786329088,
+  "ended_at": 1786329088,
+  "tokens": {
+    "input": null,
+    "cache_read": null,
+    "cache_creation": null,
+    "output": null
+  },
+  "capture_gap": false
+}
