@@ -36,7 +36,7 @@ You are DukaanSaathi, a friendly voice assistant for Indian shopkeepers and smal
 OBJECTIVES (what a successful call achieves)
 1. Solve one business problem — the user hangs up having done something useful. This could be placing an order from their local shop, setting up UPI, filing GST, listing on ONDC, or anything else they need.
 2. Build digital confidence — the user feels they can handle technology themselves, not that they need someone else to do it.
-3. Surface a relevant opportunity — mention one scheme, tool, or tactic the user has not asked about but would benefit from. For example, PM SVANidhi, WhatsApp Business catalogue, or Google Business listing.
+3. Stay on the task the caller came for. Do NOT tack on schemes, tools, or tactics they did not ask about — no unsolicited pitch at the end of a call. Only bring up a scheme, tool, or tactic (like PM SVANidhi, WhatsApp Business catalogue, or Google Business listing) when the caller asks, or when it directly solves the exact problem they raised — and then keep it to one short sentence.
 
 KNOWLEDGE (what you know, and where it stops)
 You know about: the shop's own catalogue — its items, the shop's own prices, and current stock — which you look up with your tools (never from memory or a guess). You also know about UPI and QR code payments, basic inventory tracking, GST basics, government schemes for small businesses like PM SVANidhi, Mudra Yojana, ONDC, and Digital India, setting up Google Business and WhatsApp Business profiles, and low-cost local marketing ideas.
@@ -89,10 +89,11 @@ ORDERS & PRICES
 Callers can ask prices, check availability, and order from the shop through you. This is a normal, welcome request — never refuse it.
 - For ANY price or "do you have it" question, call lookup_product. Speak the answer naturally — "आटा ४२ रुपये किलो, स्टॉक में है" — never read raw numbers or field names aloud. If it comes back not carried, say so plainly and do not estimate. If it comes back ambiguous, ask which one they mean (e.g. "sunflower oil या mustard oil?").
 - When they want to order, gather the items and quantities, then call compute_order_total for the subtotal at shop prices. Read the subtotal out, and if anything is out of stock or not carried, tell them that too — never quietly leave it off.
-- Before confirming, ALWAYS ask two things unless you already have them: their preferred delivery slot (e.g. "किस समय डिलीवरी चाहिए — सुबह या शाम?") and a delivery contact — a name and phone number the shop can reach them on. Both are needed so the shop can actually deliver.
-- Repeat the full order back in one short line — items, subtotal, delivery slot, and contact — so they can confirm.
-- Once they confirm, call place_order with the items, delivery_slot, and contact. Then tell them it's noted and the shop will confirm the final price and timing.
-- For a RETURNING caller, you may already remember their usual order, slot, and contact — offer those instead of asking again: "पिछली बार आपने ५ किलो आटा सुबह भेजा था, फ़ोन वही — वही फिर से भेज दूँ?" Still check today's price and stock with the tools, and still call place_order. Only ask for a slot or contact you do not already have.
+- Before confirming, you MUST have the caller's phone number — a 10-digit mobile the shop can call for delivery. Always ask for it if you don't have it: "डिलीवरी के लिए आपका मोबाइल नंबर बता दीजिए?" (or the English equivalent). Also ask their preferred delivery slot (e.g. "किस समय डिलीवरी चाहिए — सुबह या शाम?"). Without a valid phone number you cannot book the order.
+- Repeat the full order back in one short line — items, subtotal, delivery slot, and phone number — so they can confirm.
+- Once they confirm, call place_order with the items (as a list), their phone number, and the delivery slot. It prices the bill from the shop catalogue and saves it to the caller's record. Read the bill total back, then tell them it's noted and the shop will confirm the final price and timing.
+- If place_order says the phone number is missing or invalid, ask the caller for a correct 10-digit mobile number and call place_order again — do not book without one.
+- For a RETURNING caller, you may already remember their usual order, slot, and phone — offer those instead of asking again: "पिछली बार आपने ५ किलो आटा सुबह भेजा था, फ़ोन वही — वही फिर से भेज दूँ?" Still check today's price and stock with the tools, and still call place_order. Only ask for a slot or phone you do not already have.
 - A phone number given for delivery is ordinary order info — you may take and remember it. But NEVER ask for or save an OTP, PIN, Aadhaar, or bank account number.
 - If a tool comes back with an error (it couldn't read the catalogue), tell the caller you can't check that right now and to try again in a moment. Never make up a price or pretend an item is in stock.
 """
@@ -249,43 +250,85 @@ class Assistant(Agent):
         self,
         context: RunContext,
         items: str,
+        phone: str,
         delivery_slot: str = "",
-        contact: str = "",
+        contact_name: str = "",
     ) -> str:
-        """Record an order the caller just placed with their local shop.
+        """Record an order the caller just placed, and generate their bill.
 
-        Call this only AFTER you have collected the delivery slot and contact,
-        repeated the order back, and the caller confirmed it. Do NOT quote a price
-        or a guaranteed delivery time. This also remembers the order, slot, and
-        contact as the caller's usual, so you can offer them back next time —
-        placing the order is the caller's own request, so no separate "may I
-        remember this?" is needed for the order itself.
+        Call this only AFTER you have collected the caller's phone number and the
+        delivery slot, repeated the order back, and the caller confirmed it. A
+        phone number is REQUIRED — you cannot book a delivery the shop can't call
+        back. If `phone` is missing or not a valid 10-digit Indian mobile, this
+        returns without booking and tells you to ask for it again; do that, then
+        call place_order once more. Prices on the bill come from the shop
+        catalogue, not from you — do NOT quote a total yourself.
 
         Args:
-            items: What they ordered, in plain words, e.g. "5 kg atta, 2 kg sugar".
+            items: JSON array of what they ordered, each with item_name and
+                quantity, e.g. '[{"item_name": "atta", "quantity": 5},
+                {"item_name": "sugar", "quantity": 2}]'.
+            phone: The caller's 10-digit mobile number for delivery, e.g.
+                "98765 43210". Required. Never pass an OTP, PIN, Aadhaar, or bank
+                account number here.
             delivery_slot: When they want it, e.g. "morning" or "kal shaam".
-            contact: Name and phone the shop can reach them on for delivery, e.g.
-                "Ramesh, 98765 43210". A delivery phone number is ordinary order
-                info; never pass an OTP, PIN, Aadhaar, or bank account number here.
+            contact_name: Name the shop should ask for on delivery, if different
+                from the caller.
         """
+        clean_phone = memory.normalize_phone(phone)
+        if not clean_phone:
+            # Don't book without a reachable number — bounce back to the agent.
+            return (
+                "No valid phone number yet, so the order was NOT booked. Ask the caller "
+                "for a 10-digit mobile number the shop can call for delivery, then place "
+                "the order again."
+            )
+        try:
+            parsed = json.loads(items)
+            if not isinstance(parsed, list):
+                raise ValueError
+        except (json.JSONDecodeError, ValueError):
+            return (
+                "Could not read the order items. Ask the caller to list the items and "
+                "quantities again, then place the order."
+            )
+
+        bill = await memory.abuild_bill(parsed, clean_phone)
+        if not bill["line_items"]:
+            # Everything was out of stock / unknown — nothing to bill.
+            issues = "; ".join(bill["issues"]) or "no items could be billed"
+            return f"Nothing could be added to the order ({issues}). Tell the caller and ask again."
+
         if not self.user_id:
-            # No stable id — still acknowledge the order, just can't remember it.
-            return "Order noted for this call. (No caller id, so it won't be remembered next time.)"
-        # ponytail: store last_order/delivery_slot as plain strings (the dashboard
-        # renders facts as strings). Add an order_history list only if the demo needs it.
-        facts = {"last_order": items}
+            # No stable id — acknowledge with the bill, just can't remember it.
+            return (
+                f"Order booked for this call: {bill['summary']}, phone {clean_phone}. "
+                "(No caller id, so it won't be remembered next time.) "
+                "Tell the caller the shop will confirm final price and timing."
+            )
+        # Store the itemised bill as caller facts so it shows on the dashboard's
+        # caller pages (which render every fact as a line). Prices are shop truth.
+        # ponytail: keep only the latest bill as facts; add a bills table only if
+        # the shopkeeper needs full order history.
+        facts = {
+            "last_bill": bill["summary"],
+            "last_bill_total": f"₹{bill['total']:g}",
+            "contact": f"{contact_name} {clean_phone}".strip() if contact_name else clean_phone,
+        }
         if delivery_slot:
             facts["delivery_slot"] = delivery_slot
-        if contact:
-            facts["contact"] = contact
         await memory.aupsert_caller(self.user_id, facts=facts)
         logger.info(
-            "order placed for %s: %s (slot=%s contact=%s)",
-            self.user_id, items, delivery_slot or "-", contact or "-",
+            "order booked for %s: %s (phone=%s slot=%s)",
+            self.user_id, bill["summary"], clean_phone, delivery_slot or "-",
         )
+        issues_note = ""
+        if bill["issues"]:
+            issues_note = " Also tell them: " + "; ".join(bill["issues"]) + "."
         return (
-            "Order noted. Tell the caller the shop will confirm the final price and timing, "
-            "and that you'll remember this as their usual for next time."
+            f"Order booked. Bill: {bill['summary']}, phone {clean_phone}. "
+            "Read the bill total back, tell the caller the shop will confirm final price "
+            f"and timing, and that you'll remember this as their usual.{issues_note}"
         )
 
     @function_tool

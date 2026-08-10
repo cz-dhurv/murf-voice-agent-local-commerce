@@ -12,6 +12,7 @@ The agent reads/writes this through function tools, never through the prompt.
 import asyncio
 import json
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, TypedDict
@@ -255,6 +256,38 @@ def compute_order_total(items: list[dict[str, Any]]) -> dict[str, Any]:
     return {"line_items": line_items, "total": round(total, 2), "issues": issues}
 
 
+# ---- booking: phone + itemised bill (Local Commerce) ----
+def normalize_phone(raw: str) -> Optional[str]:
+    """Return a clean 10-digit Indian mobile number, or None if it isn't one.
+
+    Strips spaces, dashes, and a +91 / 0 prefix. A booking needs a real number
+    the shop can call back, so anything that isn't 10 digits starting 6-9 is
+    rejected — the agent then asks again instead of booking a bad contact.
+    """
+    digits = re.sub(r"\D", "", raw or "")
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]
+    if len(digits) == 10 and digits[0] in "6789":
+        return digits
+    return None
+
+
+def build_bill(items: list[dict[str, Any]], phone: str) -> dict[str, Any]:
+    """Price an order at shop rates and wrap it as a caller bill.
+
+    Prices come from the catalogue (never the caller/LLM), so the stored bill is
+    the shop's own truth. Returns the order total dict plus `phone` and a short
+    human `summary` line the dashboard shows as a fact.
+    """
+    order = compute_order_total(items)
+    parts = [f"{li['name']} x{li['quantity_asked']:g}" for li in order["line_items"]]
+    summary = f"{', '.join(parts)} = ₹{order['total']:g}" if parts else "no billable items"
+    return {**order, "phone": phone, "summary": summary}
+
+
+
 # ---- async wrappers (sqlite is blocking; keep the agent event loop free) ----
 async def aget_caller(user_id: str) -> Optional[CallerRecord]:
     return await asyncio.to_thread(get_caller, user_id)
@@ -274,6 +307,10 @@ async def alookup_product(item_name: str, quantity: float = 1.0) -> dict[str, An
 
 async def acompute_order_total(items: list[dict[str, Any]]) -> dict[str, Any]:
     return await asyncio.to_thread(compute_order_total, items)
+
+
+async def abuild_bill(items: list[dict[str, Any]], phone: str) -> dict[str, Any]:
+    return await asyncio.to_thread(build_bill, items, phone)
 
 
 def _selfcheck() -> None:
@@ -332,6 +369,20 @@ def _selfcheck() -> None:
         assert order["total"] == round(58.0 * 2, 2)
         assert len(order["line_items"]) == 1
         assert len(order["issues"]) == 3
+
+        # phone: accept clean/prefixed 10-digit mobiles, reject junk
+        assert normalize_phone("98765 43210") == "9876543210"
+        assert normalize_phone("+91 98765-43210") == "9876543210"
+        assert normalize_phone("098765 43210") == "9876543210"
+        assert normalize_phone("12345") is None          # too short
+        assert normalize_phone("1234567890") is None      # bad leading digit
+        assert normalize_phone("") is None
+
+        # bill: priced from the catalogue, carries phone + a spoken summary
+        bill = build_bill([{"item_name": "rice", "quantity": 2}], "9876543210")
+        assert bill["total"] == round(58.0 * 2, 2)
+        assert bill["phone"] == "9876543210"
+        assert "rice" in bill["summary"] and "116" in bill["summary"]
 
         print("memory selfcheck: OK", f"({path})")
     finally:
