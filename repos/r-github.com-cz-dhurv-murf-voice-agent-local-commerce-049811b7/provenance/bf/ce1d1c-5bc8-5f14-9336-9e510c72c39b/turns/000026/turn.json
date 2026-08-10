@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "turn_uid": "e2de4cf7-94bf-54f4-8247-f65d3b390964",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 26,
+  "native_turn_index": 26,
+  "source": "claude",
+  "trigger": "continue",
+  "started_at": 1786328190,
+  "ended_at": 1786328190,
+  "tokens": {
+    "input": null,
+    "cache_read": null,
+    "cache_creation": null,
+    "output": null
+  },
+  "capture_gap": false
+}
