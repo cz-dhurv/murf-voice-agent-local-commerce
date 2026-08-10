@@ -98,10 +98,23 @@ export function getCallerId(): string {
   const KEY = 'dukaan-caller-id';
   let id = localStorage.getItem(KEY);
   if (!id) {
-    id = crypto.randomUUID();
+    id = uuidv4();
     localStorage.setItem(KEY, id);
   }
   return id;
+}
+
+// crypto.randomUUID is secure-context only (works on localhost, undefined on a
+// LAN IP over plain http). getRandomValues has no such gate, so build v4 from it.
+function uuidv4(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variant 10
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0'));
+  return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}`;
 }
 
 /**
