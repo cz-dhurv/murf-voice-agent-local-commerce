@@ -4,20 +4,17 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
-  Bug,
-  FileText,
-  History,
+  ArrowRight,
+  Boxes,
   Languages,
-  ListChecks,
-  MessageSquare,
   NotebookPen,
+  PackageX,
   Pencil,
-  Play,
   Save,
-  ScrollText,
   ShieldCheck,
-  Sprout,
+  ShoppingCart,
   Trash2,
+  TriangleAlert,
   User,
   UserCheck,
 } from 'lucide-react';
@@ -25,31 +22,26 @@ import { toast } from 'sonner';
 import { useSessionContext, useVoiceAssistant } from '@livekit/components-react';
 import {
   type Caller,
+  LOW_STOCK,
+  type Product,
   cx,
+  fmtInr,
   fmtWhen,
   initials,
   langName,
   useCallers,
+  useCatalogue,
 } from '@/components/app/dashboard/data';
-import {
-  DEMO_AGENT_LOGS,
-  DEMO_CONVERSATION,
-  DEMO_DEBUG,
-  DEMO_INSIGHTS,
-  DEMO_RECENT,
-} from '@/components/app/dashboard/demo';
 import {
   Card,
   CardTitle,
   ConfirmDialog,
-  DemoBadge,
   EmptyState,
   LoadingRow,
   MetaRow,
   PageHeader,
   StatCard,
   StatusPill,
-  Tabs,
   type Tone,
 } from '@/components/app/dashboard/kit';
 import { DukaanExperience } from '@/components/app/dukaan-experience';
@@ -80,7 +72,7 @@ export default function DashboardHome() {
     <div>
       <PageHeader
         title="Control Center"
-        sub="Live voice session, caller memory, and call insights in one place."
+        sub="Live voice session, your shop at a glance, and caller memory in one place."
         actions={
           <StatusPill tone={call.tone} pulse={isConnected}>
             {call.label}
@@ -88,22 +80,14 @@ export default function DashboardHome() {
         }
       />
 
-      {/* KPI row — real (call status, language, returning) + badged demo (track, consent) */}
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      {/* KPI row — every card is backed by a real source (session + SQLite). */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           icon={Activity}
           tone={call.tone}
           label="Call Status"
           value={call.label}
           hint={call.hint}
-        />
-        <StatCard
-          icon={Sprout}
-          tone="success"
-          label="Track"
-          value="Agriculture"
-          hint="Crop: Cotton"
-          badge={<DemoBadge label="Demo" />}
         />
         <StatCard
           icon={Languages}
@@ -113,161 +97,133 @@ export default function DashboardHome() {
           hint={me ? 'Caller preference' : 'Native script'}
         />
         <StatCard
-          icon={ShieldCheck}
-          tone="success"
-          label="Consent"
-          value="Granted"
-          hint="Stored with consent"
-          badge={<DemoBadge label="Demo" />}
-        />
-        <StatCard
           icon={UserCheck}
           tone={me ? 'success' : 'neutral'}
           label="Returning Caller"
           value={me ? 'Yes' : 'New'}
           hint={me ? `${Object.keys(me.facts).length} facts remembered` : 'First interaction'}
         />
+        <StatCard
+          icon={User}
+          tone="info"
+          label="Known Callers"
+          value={loading ? '—' : callers.length}
+          hint="in memory store"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* left: live conversation showcase + the real voice widget */}
+        {/* left: the real voice widget (live transcript streams inside it) */}
         <div className="space-y-4 lg:col-span-2">
-          <LiveConversation isConnected={isConnected} state={state} />
           <DukaanExperience />
         </div>
 
-        {/* right rail: real caller memory + quick actions + demo recents */}
+        {/* right rail: real shop summary + real caller memory */}
         <div className="space-y-4">
+          <ShopRail />
           <CallerRail caller={me} loading={loading} onPatch={patch} onRemove={remove} />
-          <RecentRail />
         </div>
       </div>
     </div>
   );
 }
 
-// ---------------- Live Conversation (tabs) ----------------
-// The turn cards, insights, and logs are illustrative — the real live transcript
-// streams inside <DukaanExperience/> below. Everything here wears a DemoBadge.
-const CONVO_TABS = [
-  { id: 'convo', label: 'Live Conversation', icon: MessageSquare },
-  { id: 'insights', label: 'Call Insights', icon: ListChecks },
-  { id: 'logs', label: 'Agent Logs', icon: ScrollText },
-  { id: 'transcript', label: 'Transcript', icon: FileText },
-  { id: 'debug', label: 'Debug Info', icon: Bug },
-];
+// ---------------- Shop at a glance (REAL catalogue) ----------------
+function ShopRail() {
+  const { catalogue, categories, loading, error } = useCatalogue();
 
-const LOG_TONE: Record<'info' | 'ok' | 'warn', Tone> = {
-  info: 'info',
-  ok: 'success',
-  warn: 'brand',
-};
-
-function LiveConversation({ isConnected, state }: { isConnected: boolean; state: string }) {
-  const [tab, setTab] = useState('convo');
+  const summary = useMemo(() => {
+    const out = catalogue.filter((p) => p.stock_qty <= 0);
+    const low = catalogue.filter((p) => p.stock_qty > 0 && p.stock_qty <= LOW_STOCK);
+    const value = catalogue.reduce((s, p) => s + p.unit_price * p.stock_qty, 0);
+    return { out, low, value };
+  }, [catalogue]);
 
   return (
-    <Card className="p-0">
-      <div className="flex items-center gap-2 px-5 pt-5 sm:px-6">
-        <MessageSquare className="text-primary size-5" />
-        <span className="font-semibold">Live Conversation</span>
-        <DemoBadge className="ml-2" />
-        <span className="ml-auto">
-          <StatusPill tone={isConnected ? 'success' : 'neutral'} pulse={isConnected}>
-            {isConnected ? state : 'offline'}
-          </StatusPill>
-        </span>
-      </div>
+    <Card>
+      <CardTitle
+        icon={Boxes}
+        right={
+          <Link
+            href="/dashboard/catalogue"
+            className="text-primary inline-flex items-center gap-1 text-xs font-medium"
+          >
+            Manage <ArrowRight className="size-3.5" />
+          </Link>
+        }
+      >
+        Shop at a Glance
+      </CardTitle>
 
-      <div className="mt-4 px-5 sm:px-6">
-        <Tabs tabs={CONVO_TABS} value={tab} onChange={setTab} />
-      </div>
-
-      <div className="p-5 sm:p-6">
-        {tab === 'convo' && (
-          <div className="space-y-3">
-            {DEMO_CONVERSATION.map((turn, i) => (
-              <div
-                key={i}
-                className={cx(
-                  'flex flex-col gap-1 rounded-2xl border p-3.5 text-sm',
-                  turn.who === 'agent'
-                    ? 'bg-primary/5 border-primary/15'
-                    : 'border-emerald-500/15 bg-emerald-500/5'
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cx(
-                      'text-xs font-semibold',
-                      turn.who === 'agent'
-                        ? 'text-primary'
-                        : 'text-emerald-600 dark:text-emerald-400'
-                    )}
-                  >
-                    {turn.who === 'agent' ? 'AI Agent' : 'Caller'}
-                  </span>
-                  <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-                    {turn.at}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Play audio"
-                    className="text-muted-foreground hover:text-primary"
-                  >
-                    <Play className="size-3.5" />
-                  </button>
-                </div>
-                <p className="font-medium" lang="hi">
-                  {turn.native}
-                </p>
-                <p className="text-muted-foreground text-xs">{turn.translation}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === 'insights' && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {DEMO_INSIGHTS.map((it) => (
-              <div key={it.label} className="bg-muted/40 rounded-xl px-4 py-3">
-                <div className="text-muted-foreground text-xs">{it.label}</div>
-                <div className="mt-1 font-semibold">{it.value}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === 'logs' && (
-          <ul className="space-y-2 font-mono text-xs">
-            {DEMO_AGENT_LOGS.map((l, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <span className="text-muted-foreground shrink-0 tabular-nums">{l.t}</span>
-                <StatusPill tone={LOG_TONE[l.level]}>{l.level}</StatusPill>
-                <span className="min-w-0 break-words">{l.msg}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {tab === 'transcript' && (
-          <p className="text-muted-foreground text-sm leading-6">
-            The full turn-by-turn transcript streams live inside the voice widget below while a call
-            is connected. This tab is a placeholder for the exported transcript view.
-          </p>
-        )}
-
-        {tab === 'debug' && (
+      {loading ? (
+        <LoadingRow label="Loading catalogue…" />
+      ) : error ? (
+        <EmptyState
+          icon={Boxes}
+          title="Catalogue unreachable"
+          sub="The /api/catalogue endpoint did not respond."
+        />
+      ) : catalogue.length === 0 ? (
+        <EmptyState
+          icon={Boxes}
+          title="No items yet"
+          sub="Run the voice agent once to seed the shop inventory."
+        />
+      ) : (
+        <>
           <dl className="divide-y">
-            {Object.entries(DEMO_DEBUG).map(([k, v]) => (
-              <MetaRow key={k} label={k}>
-                <code className="font-mono text-xs">{String(v)}</code>
-              </MetaRow>
-            ))}
+            <MetaRow label="Items listed">
+              {catalogue.length}{' '}
+              <span className="text-muted-foreground">· {categories.length} cat.</span>
+            </MetaRow>
+            <MetaRow label="Inventory value">{fmtInr(summary.value)}</MetaRow>
+            <MetaRow label="Low stock">
+              <span className={cx(summary.low.length > 0 && 'text-blue-600 dark:text-blue-400')}>
+                {summary.low.length}
+              </span>
+            </MetaRow>
+            <MetaRow label="Out of stock">
+              <span className={cx(summary.out.length > 0 && 'text-destructive font-medium')}>
+                {summary.out.length}
+              </span>
+            </MetaRow>
           </dl>
-        )}
-      </div>
+
+          {(summary.out.length > 0 || summary.low.length > 0) && (
+            <div className="mt-3 space-y-1.5 border-t pt-3">
+              {summary.out.slice(0, 3).map((p) => (
+                <RestockRow key={p.name} p={p} out />
+              ))}
+              {summary.low.slice(0, 3).map((p) => (
+                <RestockRow key={p.name} p={p} />
+              ))}
+            </div>
+          )}
+
+          <Link href="/dashboard/orders">
+            <Button size="sm" variant="outline" className="mt-4 w-full justify-start gap-2">
+              <ShoppingCart className="size-4" /> Build an Order
+            </Button>
+          </Link>
+        </>
+      )}
     </Card>
+  );
+}
+
+function RestockRow({ p, out }: { p: Product; out?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      {out ? (
+        <PackageX className="text-destructive size-3.5 shrink-0" />
+      ) : (
+        <TriangleAlert className="size-3.5 shrink-0 text-blue-500" />
+      )}
+      <span className="flex-1 truncate capitalize">{p.name}</span>
+      <span className="text-muted-foreground shrink-0 tabular-nums">
+        {out ? 'out' : `${p.stock_qty} ${p.unit ?? ''} left`}
+      </span>
+    </div>
   );
 }
 
@@ -454,12 +410,7 @@ function CallerRail({
           )}
           <Link href="/dashboard/callers">
             <Button size="sm" variant="outline" className="w-full justify-start gap-2">
-              <NotebookPen className="size-4" /> View Full Profile
-            </Button>
-          </Link>
-          <Link href="/dashboard/history">
-            <Button size="sm" variant="outline" className="w-full justify-start gap-2">
-              <History className="size-4" /> Call History
+              <NotebookPen className="size-4" /> View All Callers
             </Button>
           </Link>
           <Button
@@ -490,33 +441,5 @@ function CallerRail({
         busy={busy}
       />
     </>
-  );
-}
-
-// ---------------- Recent conversations (demo rail) ----------------
-function RecentRail() {
-  return (
-    <Card>
-      <CardTitle icon={History} right={<DemoBadge />}>
-        Recent Conversations
-      </CardTitle>
-      <ul className="space-y-1">
-        {DEMO_RECENT.map((r) => (
-          <li
-            key={r.id}
-            className="hover:bg-muted/50 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors"
-          >
-            <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold">
-              {initials(r.name)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{r.name}</div>
-              <div className="text-muted-foreground truncate text-xs">{r.snippet}</div>
-            </div>
-            <span className="text-muted-foreground shrink-0 text-xs">{r.when}</span>
-          </li>
-        ))}
-      </ul>
-    </Card>
   );
 }

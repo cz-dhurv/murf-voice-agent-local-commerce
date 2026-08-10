@@ -1,8 +1,47 @@
 'use client';
 
 import { CheckCircle2, Circle, KeyRound, Plug } from 'lucide-react';
-import { DEMO_INTEGRATIONS, type IntegrationStatus } from '@/components/app/dashboard/demo';
 import { Card, PageHeader, StatusPill, type Tone } from '@/components/app/dashboard/kit';
+
+// Real service status for THIS build. `real` splits what actually runs from what
+// is planned/available. Security: never add an API key field here — name only.
+type IntegrationStatus = 'connected' | 'available' | 'not-configured';
+const INTEGRATIONS: {
+  name: string;
+  role: string;
+  status: IntegrationStatus;
+  real: boolean;
+}[] = [
+  {
+    name: 'LiveKit Agents',
+    role: 'Real-time voice pipeline & session orchestration',
+    status: 'connected',
+    real: true,
+  },
+  {
+    name: 'Murf Falcon TTS',
+    role: 'Streaming text-to-speech (voice: Anisha)',
+    status: 'connected',
+    real: true,
+  },
+  { name: 'Deepgram Nova-3', role: 'Multilingual speech-to-text', status: 'connected', real: true },
+  { name: 'Google Gemini', role: 'LLM reasoning & responses', status: 'connected', real: true },
+  { name: 'Silero VAD', role: 'Voice activity & turn detection', status: 'connected', real: true },
+  {
+    name: 'SQLite (node:sqlite)',
+    role: 'Caller memory & catalogue store',
+    status: 'connected',
+    real: true,
+  },
+  {
+    name: 'PostgreSQL',
+    role: 'Production caller store (planned migration)',
+    status: 'not-configured',
+    real: false,
+  },
+  { name: 'Pinecone', role: 'Vector search for knowledge base', status: 'available', real: false },
+  { name: 'LangChain', role: 'Retrieval & tool orchestration', status: 'available', real: false },
+];
 
 const STATUS_TONE: Record<IntegrationStatus, Tone> = {
   connected: 'success',
@@ -20,8 +59,8 @@ const STATUS_LABEL: Record<IntegrationStatus, string> = {
 // mockup lists aspirationally. Security: API keys are NEVER rendered here — only
 // the service name and its live/planned status. Keys live in backend/.env.local.
 export default function IntegrationsPage() {
-  const active = DEMO_INTEGRATIONS.filter((i) => i.real);
-  const planned = DEMO_INTEGRATIONS.filter((i) => !i.real);
+  const active = INTEGRATIONS.filter((i) => i.real);
+  const planned = INTEGRATIONS.filter((i) => !i.real);
 
   return (
     <div>

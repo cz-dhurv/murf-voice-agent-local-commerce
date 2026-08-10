@@ -4,21 +4,20 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  BarChart3,
   Bell,
-  BookOpen,
   Bot,
+  Boxes,
   Database,
   Github,
   Home,
   Languages,
   Menu,
-  PhoneCall,
   PhoneOff,
   Plug,
   Radio,
   Settings,
   ShieldCheck,
+  ShoppingCart,
   Users,
   X,
 } from 'lucide-react';
@@ -27,7 +26,7 @@ import { LanguageToggle } from '@/components/app/language-toggle';
 import { ThemeToggle } from '@/components/app/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/shadcn/utils';
-import { DEMO_FLEET } from './demo';
+import { useCallers, useCatalogue } from './data';
 
 const REPO_URL = 'https://github.com/cz-dhurv/murf-voice-agent-local-commerce';
 
@@ -35,12 +34,11 @@ type NavItem = { href: string; label: string; icon: React.ElementType };
 
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/dashboard/live', label: 'Live Calls', icon: Radio },
-  { href: '/dashboard/history', label: 'Call History', icon: PhoneCall },
+  { href: '/dashboard/live', label: 'Live Session', icon: Radio },
+  { href: '/dashboard/catalogue', label: 'Catalogue', icon: Boxes },
+  { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/callers', label: 'Caller Profiles', icon: Users },
-  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/knowledge', label: 'Knowledge Base', icon: BookOpen },
-  { href: '/dashboard/agents', label: 'Agent Settings', icon: Bot },
+  { href: '/dashboard/agents', label: 'Agent', icon: Bot },
   { href: '/dashboard/memory', label: 'Memory & Data', icon: Database },
   { href: '/dashboard/integrations', label: 'Tools & Integrations', icon: Plug },
   { href: '/dashboard/multilingual', label: 'Multilingual', icon: Languages },
@@ -90,6 +88,35 @@ function FleetStat({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+// Real footer counters — the two SQLite tables the agent actually reads/writes.
+function StoreStatus() {
+  const { callers, db, loading, error } = useCallers();
+  const { catalogue, loading: catLoading } = useCatalogue();
+  const connected = !error && !!db?.connected;
+
+  return (
+    <div className="bg-muted/40 space-y-2 rounded-xl p-3">
+      <div
+        className={cn(
+          'flex items-center gap-1.5 text-xs font-semibold',
+          connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+        )}
+      >
+        <span
+          className={cn(
+            'size-1.5 rounded-full',
+            connected ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground/40'
+          )}
+        />
+        {connected ? 'Memory store connected' : 'Store offline'}
+      </div>
+      <FleetStat label="Known callers" value={loading ? '—' : callers.length} />
+      <FleetStat label="Catalogue items" value={catLoading ? '—' : catalogue.length} />
+      <FleetStat label="Engine" value={db?.engine ?? 'SQLite'} />
+    </div>
+  );
+}
+
 function SidebarBody({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
@@ -120,15 +147,7 @@ function SidebarBody({ pathname, onNavigate }: { pathname: string; onNavigate?: 
       </nav>
 
       <div className="space-y-3 border-t p-4">
-        <div className="bg-muted/40 space-y-2 rounded-xl p-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> Agents Online{' '}
-            {DEMO_FLEET.agentsOnline}
-          </div>
-          <FleetStat label="Active agents" value={DEMO_FLEET.activeAgents} />
-          <FleetStat label="Calls today" value={DEMO_FLEET.callsToday} />
-          <FleetStat label="Total calls" value={DEMO_FLEET.totalCalls} />
-        </div>
+        <StoreStatus />
         <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
           <Button variant="outline" size="sm" className="w-full gap-1.5">
             <Github className="size-4" /> Star on GitHub

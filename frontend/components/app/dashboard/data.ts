@@ -96,10 +96,116 @@ export function useCallers(): CallersState {
   };
 }
 
+// Shapes returned by /api/catalogue — the shop's real inventory, same SQLite
+// file the Python agent reads for lookup_product / compute_order_total.
+export type Product = {
+  name: string;
+  category: string | null;
+  unit: string | null;
+  unit_price: number;
+  in_stock: boolean;
+  stock_qty: number;
+};
+
+export type OrderLine = Product & { quantity: number; line_total: number };
+export type OrderTotal = { line_items: OrderLine[]; total: number; issues: string[] };
+
+type CatalogueState = {
+  catalogue: Product[];
+  categories: string[];
+  db: DbStatus | null;
+  loading: boolean;
+  error: boolean;
+  reload: () => Promise<void>;
+  patch: (name: string, body: { shop_price: number; stock_qty: number }) => Promise<boolean>;
+  quote: (items: { item_name: string; quantity: number }[]) => Promise<OrderTotal>;
+};
+
+/**
+ * Real catalogue/stock/order-total data. Mirrors useCallers: no fabricated
+ * fallbacks — an unreachable API surfaces as `error`, never faked success.
+ * `quote()` totals an order server-side (see app/api/catalogue POST), giving the
+ * same result the voice agent's compute_order_total tool would.
+ */
+export function useCatalogue(): CatalogueState {
+  const [data, setData] = useState<{
+    catalogue: Product[];
+    categories: string[];
+    db: DbStatus | null;
+  } | null>(null);
+  const [error, setError] = useState(false);
+
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch('/api/catalogue', { cache: 'no-store' });
+      const j = await res.json();
+      setData({
+        catalogue: Array.isArray(j.catalogue) ? j.catalogue : [],
+        categories: Array.isArray(j.categories) ? j.categories : [],
+        db: j.db ?? null,
+      });
+      setError(false);
+    } catch {
+      setData({ catalogue: [], categories: [], db: null });
+      setError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const patch = useCallback(
+    async (name: string, body: { shop_price: number; stock_qty: number }) => {
+      const res = await fetch(`/api/catalogue?name=${encodeURIComponent(name)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const ok = res.ok && (await res.json())?.updated === true;
+      await reload();
+      return ok;
+    },
+    [reload]
+  );
+
+  const quote = useCallback(async (items: { item_name: string; quantity: number }[]) => {
+    const res = await fetch('/api/catalogue', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ items }),
+    });
+    return (await res.json()) as OrderTotal;
+  }, []);
+
+  return {
+    catalogue: data?.catalogue ?? [],
+    categories: data?.categories ?? [],
+    db: data?.db ?? null,
+    loading: data === null,
+    error,
+    reload,
+    patch,
+    quote,
+  };
+}
+
 // ---------------- formatters (shared by every dashboard surface) ----------------
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
+}
+
+// ponytail: one flat low-stock threshold across every unit (kg/litre/packet/piece);
+// shared by the catalogue page and the control-center shop rail so they agree.
+export const LOW_STOCK = 5;
+
+/** ₹ with Indian digit grouping; drops the decimal for whole rupees. */
+export function fmtInr(n: number): string {
+  return `₹${n.toLocaleString('en-IN', {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 /** sqlite datetime('now') is a UTC "YYYY-MM-DD HH:MM:SS" string. */

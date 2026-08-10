@@ -1,16 +1,18 @@
 'use client';
 
-import { Bot, Ear, Languages, MessageSquare, Mic, Volume2 } from 'lucide-react';
-import { DEMO_AGENTS } from '@/components/app/dashboard/demo';
 import {
-  Card,
-  CardTitle,
-  DemoBadge,
-  MetaRow,
-  PageHeader,
-  StatusPill,
-  type Tone,
-} from '@/components/app/dashboard/kit';
+  Bot,
+  Boxes,
+  BrainCircuit,
+  Ear,
+  Languages,
+  MessageSquare,
+  Mic,
+  ReceiptText,
+  ShieldCheck,
+  Volume2,
+} from 'lucide-react';
+import { Card, CardTitle, MetaRow, PageHeader, StatusPill } from '@/components/app/dashboard/kit';
 
 // This agent's real pipeline — the actual components backend/src/agent.py runs.
 // Not demo: these are the real STT/LLM/TTS/VAD choices baked into the worker.
@@ -22,66 +24,85 @@ const PIPELINE: { icon: React.ElementType; label: string; value: string }[] = [
   { icon: Languages, label: 'Languages', value: 'Auto-detected, native script' },
 ];
 
-const STATUS_TONE: Record<string, Tone> = {
-  online: 'success',
-  draft: 'neutral',
-};
+// The agent's real function tools (backend/src/memory.py) — what it can actually do.
+const CAPABILITIES: { icon: React.ElementType; label: string; detail: string }[] = [
+  {
+    icon: BrainCircuit,
+    label: 'Remembers callers',
+    detail: 'Recalls name, language & saved facts between calls',
+  },
+  {
+    icon: Boxes,
+    label: 'Catalogue & stock lookup',
+    detail: 'Prices and live stock for every listed item',
+  },
+  {
+    icon: ReceiptText,
+    label: 'Computes order totals',
+    detail: 'Line items at shop price, flags out-of-stock',
+  },
+  {
+    icon: ShieldCheck,
+    label: 'Forgets on request',
+    detail: 'GDPR-style erasure of a caller’s memory',
+  },
+];
 
 export default function AgentsPage() {
   return (
     <div>
-      <PageHeader title="Agent Settings" sub="Voice pipeline configuration and the agent fleet." />
+      <PageHeader
+        title="Agent"
+        sub="The voice pipeline and capabilities of the DukaanSaathi shopkeeper assistant."
+      />
 
-      <Card className="mb-6">
-        <CardTitle
-          icon={Bot}
-          right={
-            <StatusPill tone="success" pulse>
-              Live pipeline
-            </StatusPill>
-          }
-        >
-          This agent · DukaanSaathi
-        </CardTitle>
-        <dl className="divide-y">
-          {PIPELINE.map(({ icon: Icon, label, value }) => (
-            <MetaRow key={label} label={label}>
-              <span className="inline-flex items-center gap-1.5">
-                <Icon className="text-primary size-4" /> {value}
-              </span>
-            </MetaRow>
-          ))}
-        </dl>
-        <p className="text-muted-foreground mt-4 text-xs leading-5">
-          These are the real components the Python worker runs (backend/src/agent.py). Model and
-          voice are set in the backend configuration, not editable from this screen.
-        </p>
-      </Card>
-
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="font-semibold">Fleet</h2>
-        <DemoBadge />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {DEMO_AGENTS.map((a) => (
-          <Card key={a.id} className="p-4">
-            <div className="flex items-center gap-2">
-              <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-lg">
-                <Bot className="size-4" />
-              </span>
-              <StatusPill tone={STATUS_TONE[a.status] ?? 'neutral'} pulse={a.status === 'online'}>
-                {a.status}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardTitle
+            icon={Bot}
+            right={
+              <StatusPill tone="success" pulse>
+                Live pipeline
               </StatusPill>
-            </div>
-            <div className="mt-3 font-semibold">{a.name}</div>
-            <div className="text-muted-foreground mt-1 text-xs">
-              {a.track} · {a.voice}
-            </div>
-            <div className="text-muted-foreground mt-3 text-xs tabular-nums">
-              {a.calls.toLocaleString()} calls handled
-            </div>
-          </Card>
-        ))}
+            }
+          >
+            Voice pipeline
+          </CardTitle>
+          <dl className="divide-y">
+            {PIPELINE.map(({ icon: Icon, label, value }) => (
+              <MetaRow key={label} label={label}>
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon className="text-primary size-4" /> {value}
+                </span>
+              </MetaRow>
+            ))}
+          </dl>
+          <p className="text-muted-foreground mt-4 text-xs leading-5">
+            These are the real components the Python worker runs (backend/src/agent.py). Model and
+            voice are set in the backend configuration, not editable from this screen.
+          </p>
+        </Card>
+
+        <Card>
+          <CardTitle icon={BrainCircuit}>What it can do</CardTitle>
+          <ul className="space-y-3">
+            {CAPABILITIES.map(({ icon: Icon, label, detail }) => (
+              <li key={label} className="flex items-start gap-3">
+                <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+                  <Icon className="size-4" />
+                </span>
+                <div>
+                  <div className="text-sm font-medium">{label}</div>
+                  <div className="text-muted-foreground text-xs">{detail}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground mt-4 text-xs leading-5">
+            Each capability is a real function tool wired to the SQLite store. See{' '}
+            <span className="font-medium">Tools &amp; Integrations</span> for the full list.
+          </p>
+        </Card>
       </div>
     </div>
   );
