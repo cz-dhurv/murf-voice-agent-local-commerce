@@ -1,0 +1,1 @@
+[{"name":"Bash","observed_at":1786329139,"input":{"command":"cd \"C:/Users/maury/Documents/Murf Challenge\" && git status --short && echo \"---recent---\" && git log --oneline -4","description":"Check working tree and recent commits"},"failed":false}]
