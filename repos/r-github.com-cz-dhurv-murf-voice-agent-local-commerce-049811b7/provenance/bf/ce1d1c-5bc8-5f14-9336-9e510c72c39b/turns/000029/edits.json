@@ -1,0 +1,133 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "post_blob": "a164ddbe222f7068d000f412b1945115a11edbfe"
+    },
+    {
+      "path": "backend/README.md",
+      "post_blob": "35c7288ac4ec2314af7a5baf674da1e292b74237"
+    },
+    {
+      "path": "backend/src/agent.py",
+      "post_blob": "d4edfb7f2cee21c462aaae0d73572054ce0485a8"
+    },
+    {
+      "path": "backend/src/memory.py",
+      "post_blob": "3b3939513d1290ec64e5c3c76cfd0891628422cd"
+    },
+    {
+      "path": "frontend/app/api/catalogue/route.ts",
+      "pre_blob": "00701ed28dd5985261d5d3217396d3d2e4a6a2e3",
+      "post_blob": "00701ed28dd5985261d5d3217396d3d2e4a6a2e3"
+    },
+    {
+      "path": "frontend/app/dashboard/agents/page.tsx",
+      "pre_blob": "dc51b520a36da17c3633f3d8acb6f3072263bf87",
+      "post_blob": "dc51b520a36da17c3633f3d8acb6f3072263bf87"
+    },
+    {
+      "path": "frontend/app/dashboard/analytics/page.tsx",
+      "post_blob": "6de880dc4ffbbe775b02b38c173782d99937fb11"
+    },
+    {
+      "path": "frontend/app/dashboard/callers/[id]/page.tsx",
+      "post_blob": "1b2b082d4a6bd7ccf4a48fed76a969090e4e548a"
+    },
+    {
+      "path": "frontend/app/dashboard/callers/page.tsx",
+      "post_blob": "bf015f9e3aba5271a18f5058c2b8715f604b6329"
+    },
+    {
+      "path": "frontend/app/dashboard/catalogue/page.tsx",
+      "pre_blob": "4163914313243ecc3d36ba153e919cc95175c056",
+      "post_blob": "4163914313243ecc3d36ba153e919cc95175c056"
+    },
+    {
+      "path": "frontend/app/dashboard/history/page.tsx",
+      "post_blob": "cfec61ece64c3dc5fb521514e746a9513d33e8d9"
+    },
+    {
+      "path": "frontend/app/dashboard/integrations/page.tsx",
+      "pre_blob": "882d9ad49d1f76101c99f36ced15b3cc7cb2f3cd",
+      "post_blob": "882d9ad49d1f76101c99f36ced15b3cc7cb2f3cd"
+    },
+    {
+      "path": "frontend/app/dashboard/knowledge/page.tsx",
+      "post_blob": "d3b26cb658e05d79f5833358cdfe27279dd3668b"
+    },
+    {
+      "path": "frontend/app/dashboard/layout.tsx",
+      "post_blob": "514cf2e85390780d2ebccbe145e1a38d14533778"
+    },
+    {
+      "path": "frontend/app/dashboard/live/page.tsx",
+      "pre_blob": "2903ad7525272672ec63b7415d7525fb80b0f26b",
+      "post_blob": "2903ad7525272672ec63b7415d7525fb80b0f26b"
+    },
+    {
+      "path": "frontend/app/dashboard/memory/page.tsx",
+      "post_blob": "6f90982d107a74758ac71ad7d70dc32a2d9f4770"
+    },
+    {
+      "path": "frontend/app/dashboard/memory/tools/page.tsx",
+      "post_blob": "fcdbd2a806afa412219e4b964dfacf35f13fb6eb"
+    },
+    {
+      "path": "frontend/app/dashboard/multilingual/page.tsx",
+      "post_blob": "79054b2bdb342d6eb938d410a4dbaa8f254894af"
+    },
+    {
+      "path": "frontend/app/dashboard/orders/page.tsx",
+      "pre_blob": "d712e5afec6464bb3c2676f11b6d686f8022ef3d",
+      "post_blob": "d712e5afec6464bb3c2676f11b6d686f8022ef3d"
+    },
+    {
+      "path": "frontend/app/dashboard/page.tsx",
+      "pre_blob": "f16298e6581f509709d3a5fc1d261881e04a16ad",
+      "post_blob": "f16298e6581f509709d3a5fc1d261881e04a16ad"
+    },
+    {
+      "path": "frontend/app/dashboard/settings/consent/page.tsx",
+      "post_blob": "ccfec4a471ffc1d81269e640014b93e5c1705992"
+    },
+    {
+      "path": "frontend/app/dashboard/settings/page.tsx",
+      "post_blob": "a0c90447b5e4478758e9a8e35f3ab68c8e26b4bc"
+    },
+    {
+      "path": "frontend/components/app/dashboard.tsx",
+      "post_blob": "9b0309d38dba3080723f73fbd9912b024935a455"
+    },
+    {
+      "path": "frontend/components/app/dashboard/dashboard-app.tsx",
+      "post_blob": "cc17fd7652374fd4ed33bd6808f4e7c3b1b825b1"
+    },
+    {
+      "path": "frontend/components/app/dashboard/data.ts",
+      "pre_blob": "d6c5a4972895b85d6279029eceaa913a0510e012",
+      "post_blob": "d6c5a4972895b85d6279029eceaa913a0510e012"
+    },
+    {
+      "path": "frontend/components/app/dashboard/demo.ts",
+      "post_blob": "bd231ae3369b35d3b81d6143fc180279157cf9d0"
+    },
+    {
+      "path": "frontend/components/app/dashboard/kit.tsx",
+      "post_blob": "c63a4b05d72e15ac4ee39197217bc3b33106672c"
+    },
+    {
+      "path": "frontend/components/app/dashboard/shell.tsx",
+      "pre_blob": "e11c21297cf2d47aa9f89df59ff5fa09f5fad3d6",
+      "post_blob": "e11c21297cf2d47aa9f89df59ff5fa09f5fad3d6"
+    },
+    {
+      "path": "frontend/lib/i18n.ts",
+      "post_blob": "0e94ec4d5d5dc65cd03cfd69665972d6eda3d4c1"
+    },
+    {
+      "path": "frontend/lib/utils.ts",
+      "post_blob": "515796bfdd61b613cc347e46bceaec2c03b2ded7"
+    }
+  ]
+}
