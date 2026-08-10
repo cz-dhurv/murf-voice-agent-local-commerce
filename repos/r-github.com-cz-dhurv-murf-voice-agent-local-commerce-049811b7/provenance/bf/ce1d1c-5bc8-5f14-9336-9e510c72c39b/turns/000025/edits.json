@@ -1,0 +1,13 @@
+{
+  "files": [
+    {
+      "path": "frontend\\app\\api\\catalogue\\route.ts"
+    },
+    {
+      "path": "frontend\\app\\dashboard\\orders\\page.tsx"
+    },
+    {
+      "path": "frontend\\components\\app\\dashboard\\data.ts"
+    }
+  ]
+}

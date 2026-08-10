@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "turn_uid": "f3a660bb-8a44-51e0-a3ba-f73b4436bee9",
+  "session_uid": "bfce1d1c-5bc8-5f14-9336-9e510c72c39b",
+  "turn_index": 25,
+  "native_turn_index": 25,
+  "source": "claude",
+  "model": "claude-opus-4-8",
+  "trigger": "continue",
+  "started_at": 1786327022,
+  "ended_at": 1786328173,
+  "tokens": {
+    "input": 39584,
+    "cache_read": 2613086,
+    "cache_creation": 1330597,
+    "output": 17164
+  },
+  "tool_names": [
+    "Bash",
+    "Monitor",
+    "PowerShell",
+    "PowerShell",
+    "Read",
+    "Grep",
+    "Grep",
+    "Bash",
+    "PowerShell",
+    "TaskStop",
+    "TaskUpdate",
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "capture_gap": false
+}
