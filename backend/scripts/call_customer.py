@@ -137,6 +137,12 @@ def _selfcheck() -> None:
 
 
 def main() -> int:
+    # Windows consoles default to cp1252, which can't encode ₹/Devanagari output.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     ap = argparse.ArgumentParser(description="Trigger an outbound order-confirmation call.")
     ap.add_argument("--caller", help="caller_id whose saved order/phone to confirm")
     ap.add_argument("--phone", default="", help="explicit mobile (overrides saved contact)")

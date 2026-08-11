@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Pencil, PhoneOff, PhoneOutgoing, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Phone, PhoneOff, PhoneOutgoing, Save, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cx, fmtWhen, initials, useCallers } from '@/components/app/dashboard/data';
 import { ConfirmDialog, LoadingRow, StatusPill } from '@/components/app/dashboard/kit';
@@ -36,6 +36,7 @@ export default function CallerDetailPage() {
   const [facts, setFacts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [calling, setCalling] = useState(false);
+  const [dncBusy, setDncBusy] = useState(false);
   const [confirmForget, setConfirmForget] = useState(false);
 
   // Seed the form once the real row arrives (or changes).
@@ -129,6 +130,27 @@ export default function CallerDetailPage() {
     }
   };
 
+  // Set/clear the do_not_call opt-out from the dashboard (previously only the
+  // voice agent could write it). Full-replace facts, same as save() — the PATCH
+  // route overwrites facts wholesale.
+  const toggleDnc = async () => {
+    setDncBusy(true);
+    try {
+      const next = { ...caller.facts };
+      if (optedOut) delete next.do_not_call;
+      else next.do_not_call = 'true';
+      const ok = await patch(caller.user_id, {
+        name: caller.name,
+        language_preference: caller.language_preference,
+        facts: next,
+      });
+      if (ok) toast.success(optedOut ? 'Calls allowed' : 'Marked “do not call”');
+      else toast.error('Update failed');
+    } finally {
+      setDncBusy(false);
+    }
+  };
+
   return (
     <div>
       <BackButton onClick={() => router.push('/dashboard/callers')} label={tr.cdBack} />
@@ -192,6 +214,21 @@ export default function CallerDetailPage() {
                   className="gap-1.5"
                 >
                   <PhoneOutgoing className="size-4" /> {calling ? 'Calling…' : 'Call Now'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={toggleDnc}
+                  disabled={dncBusy}
+                  title={
+                    optedOut
+                      ? 'Allow order-confirmation calls to this caller again'
+                      : 'Stop placing calls to this caller'
+                  }
+                  className="gap-1.5"
+                >
+                  {optedOut ? <Phone className="size-4" /> : <PhoneOff className="size-4" />}
+                  {optedOut ? 'Allow calls' : 'Do not call'}
                 </Button>
                 <Button
                   size="sm"

@@ -42,7 +42,7 @@ async def main() -> None:
         api_secret=_require("LIVEKIT_API_SECRET"),
     )
     try:
-        info = await lk.sip.create_sip_outbound_trunk(
+        info = await lk.sip.create_outbound_trunk(
             api.CreateSIPOutboundTrunkRequest(
                 trunk=api.SIPOutboundTrunkInfo(
                     name="DukaanSaathi outbound (Twilio)",
