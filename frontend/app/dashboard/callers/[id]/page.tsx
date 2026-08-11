@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Pencil, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Pencil, PhoneOff, PhoneOutgoing, Save, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cx, fmtWhen, initials, useCallers } from '@/components/app/dashboard/data';
 import { ConfirmDialog, LoadingRow, StatusPill } from '@/components/app/dashboard/kit';
@@ -35,6 +35,7 @@ export default function CallerDetailPage() {
   const [lang, setLang] = useState('');
   const [facts, setFacts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [calling, setCalling] = useState(false);
   const [confirmForget, setConfirmForget] = useState(false);
 
   // Seed the form once the real row arrives (or changes).
@@ -105,6 +106,29 @@ export default function CallerDetailPage() {
 
   const factEntries = Object.entries(editing ? facts : caller.facts);
 
+  // Outbound calling (Day 6): only when the shop has a number to call and the
+  // caller hasn't opted out. The server route re-checks both — this just guides UI.
+  const optedOut = caller.facts.do_not_call === 'true';
+  const hasContact = Boolean(caller.facts.contact);
+
+  const callNow = async () => {
+    setCalling(true);
+    try {
+      const res = await fetch('/api/calls', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ caller_id: caller.user_id }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j?.dispatched) toast.success(`Calling ${j.calling}…`);
+      else toast.error(j?.error || 'Could not place the call');
+    } catch {
+      toast.error('Could not place the call');
+    } finally {
+      setCalling(false);
+    }
+  };
+
   return (
     <div>
       <BackButton onClick={() => router.push('/dashboard/callers')} label={tr.cdBack} />
@@ -129,6 +153,11 @@ export default function CallerDetailPage() {
                   {Object.keys(caller.facts).length > 0 && (
                     <StatusPill tone="success">{tr.reTitle}</StatusPill>
                   )}
+                  {optedOut && (
+                    <StatusPill tone="neutral">
+                      <PhoneOff className="mr-1 inline size-3" /> Do not call
+                    </StatusPill>
+                  )}
                 </div>
               )}
               <div className="text-muted-foreground mt-1 font-mono text-xs">
@@ -149,6 +178,21 @@ export default function CallerDetailPage() {
               </>
             ) : (
               <>
+                <Button
+                  size="sm"
+                  onClick={callNow}
+                  disabled={calling || optedOut || !hasContact}
+                  title={
+                    optedOut
+                      ? 'This caller has opted out of calls'
+                      : !hasContact
+                        ? 'No phone number on file for this caller'
+                        : 'Place an order-confirmation call'
+                  }
+                  className="gap-1.5"
+                >
+                  <PhoneOutgoing className="size-4" /> {calling ? 'Calling…' : 'Call Now'}
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"

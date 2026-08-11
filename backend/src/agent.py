@@ -1,9 +1,11 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Optional
 
 from dotenv import load_dotenv
+from livekit import api as lk_api
 from livekit import rtc
 from livekit.agents import (
     Agent,
@@ -96,6 +98,10 @@ Callers can ask prices, check availability, and order from the shop through you.
 - For a RETURNING caller, you may already remember their usual order, slot, and phone — offer those instead of asking again: "पिछली बार आपने ५ किलो आटा सुबह भेजा था, फ़ोन वही — वही फिर से भेज दूँ?" Still check today's price and stock with the tools, and still call place_order. Only ask for a slot or phone you do not already have.
 - A phone number given for delivery is ordinary order info — you may take and remember it. But NEVER ask for or save an OTP, PIN, Aadhaar, or bank account number.
 - If a tool comes back with an error (it couldn't read the catalogue), tell the caller you can't check that right now and to try again in a moment. Never make up a price or pretend an item is in stock.
+
+OUTBOUND CALLS
+Sometimes you place the call yourself — for example, to confirm an order the caller placed with the shop. When you do, the very first line you speak is given to you: it already says who you are, why you're calling, and that they can ask you to stop. Do NOT add a second fresh greeting on top of it. After that opening, help with exactly that purpose — confirm the order and delivery slot, answer their questions, and adjust the order with your tools if they ask. Never pitch anything they did not ask about on an outbound call.
+If the caller asks you to stop calling, or says they don't want these calls, respond warmly that you understand and won't call again — e.g. "ठीक है जी, मैं आपको दोबारा कॉल नहीं करूँगा।" (or the English equivalent) — and then call save_caller_memory with facts_json '{"do_not_call": "true"}'. Do this the moment they decline, even mid-conversation. Never argue or try to talk them out of it.
 """
 
 
@@ -438,6 +444,15 @@ async def my_agent(ctx: JobContext):
     # Join the room and connect to the user
     await ctx.connect()
 
+    # Outbound: if this job was dispatched with a phone number (order-confirmation
+    # call), dial the customer, speak the mandatory opening, then let the session
+    # run normally. Inbound browser sessions carry no such metadata and fall
+    # through to the unchanged greeting flow below.
+    meta = _job_metadata(ctx)
+    if meta.get("phone_number"):
+        await _dial_and_confirm(ctx, session, assistant, meta)
+        return
+
     # Bind this call to a stable caller id (set by the frontend as a participant
     # attribute) so the memory tools operate on the right person, then look them
     # up in Python and fold the result into the opening greeting.
@@ -472,6 +487,108 @@ async def my_agent(ctx: JobContext):
     await session.generate_reply(
         instructions=f"{greet_in} {known} Follow the GREETING section of your instructions."
     )
+
+
+def _job_metadata(ctx: JobContext) -> dict:
+    """Dispatch metadata as a dict. Empty for inbound browser sessions (which set
+    none); populated by the outbound trigger (scripts/call_customer.py or the
+    dashboard's /api/calls) with phone_number, order_summary, delivery_slot, caller_id."""
+    raw = ctx.job.metadata if ctx.job and ctx.job.metadata else ""
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _outbound_opening(
+    *, lang: str, name: Optional[str], order_summary: str, delivery_slot: str
+) -> str:
+    """The mandatory outbound opening spoken verbatim (never through the LLM, so it
+    can't drift): within the first two sentences it says who is calling, why, and
+    that the caller can stop the calls — the non-negotiable Day-6 requirement."""
+    if lang == "en":
+        greet = f"Hello {name}!" if name else "Hello!"
+        who_why = (
+            f"{greet} This is DukaanSaathi, calling on behalf of your local shop to "
+            "confirm your order. If you would rather not get these calls, just tell me "
+            "and I won't call again."
+        )
+        if order_summary:
+            slot = f", delivery {delivery_slot}" if delivery_slot else ""
+            return f"{who_why} Your order was {order_summary}{slot}. Is that all correct?"
+        return f"{who_why} Is now a good time to talk?"
+    # Hindi default — Devanagari, never romanized.
+    greet = f"नमस्ते {name} जी!" if name else "नमस्ते!"
+    who_why = (
+        f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से आपका ऑर्डर कन्फर्म "
+        "करने के लिए। अगर आप ये कॉल नहीं चाहते तो बस बता दीजिए, मैं दोबारा कॉल नहीं करूँगा।"
+    )
+    if order_summary:
+        slot = f", डिलीवरी {delivery_slot}" if delivery_slot else ""
+        return f"{who_why} आपका ऑर्डर था {order_summary}{slot}। सब सही है?"
+    return f"{who_why} क्या अभी बात करना ठीक रहेगा?"
+
+
+async def _dial_and_confirm(
+    ctx: JobContext, session: AgentSession, assistant: "Assistant", meta: dict
+) -> None:
+    """Dial the customer over Twilio SIP, speak the mandatory opening, then hand
+    off to the running session so the conversation continues normally."""
+    trunk_id = os.getenv("LIVEKIT_SIP_OUTBOUND_TRUNK_ID", "").strip()
+    if not trunk_id:
+        logger.error("LIVEKIT_SIP_OUTBOUND_TRUNK_ID not set — cannot place outbound call")
+        return
+
+    # Normalize here: this is the single choke point every outbound path routes
+    # through, so a raw "Ramesh 98765 43210" from stored facts still dials clean.
+    clean = memory.normalize_phone(meta.get("phone_number", ""))
+    if not clean:
+        logger.error("outbound: %r is not a valid mobile number", meta.get("phone_number"))
+        return
+    dial_to = f"+91{clean}"
+
+    lk = lk_api.LiveKitAPI(
+        url=os.environ["LIVEKIT_URL"],
+        api_key=os.environ["LIVEKIT_API_KEY"],
+        api_secret=os.environ["LIVEKIT_API_SECRET"],
+    )
+    try:
+        await lk.sip.create_sip_participant(
+            lk_api.CreateSIPParticipantRequest(
+                sip_trunk_id=trunk_id,
+                sip_call_to=dial_to,
+                room_name=ctx.room.name,
+                participant_identity="phone-customer",
+                wait_until_answered=True,  # blocks until they answer (or it fails)
+            )
+        )
+    except Exception as e:
+        # No-answer / busy / rejected all surface here. This is where per-outcome
+        # retries would go (plan §9); for now log it and let the job end cleanly.
+        logger.warning("outbound call to %s did not connect: %s", dial_to, e)
+        return
+    finally:
+        await lk.aclose()
+
+    # Bind memory tools to this caller so a mid-call order tweak or opt-out sticks.
+    assistant.user_id = meta.get("caller_id") or None
+    rec = await memory.aget_caller(assistant.user_id) if assistant.user_id else None
+    lang = (rec.get("language_preference") if rec else None) or "hi"
+    name = rec.get("name") if rec else None
+
+    opening = _outbound_opening(
+        lang=lang,
+        name=name,
+        order_summary=meta.get("order_summary", ""),
+        delivery_slot=meta.get("delivery_slot", ""),
+    )
+    logger.info("outbound connected to %s (caller_id=%s)", dial_to, assistant.user_id)
+    # say() (not generate_reply) keeps the disclosure verbatim; add_to_chat_ctx
+    # (default True) puts the order into context so the LLM can field follow-ups.
+    await session.say(opening, allow_interruptions=True).wait_for_playout()
 
 
 async def _wait_for_attributes(

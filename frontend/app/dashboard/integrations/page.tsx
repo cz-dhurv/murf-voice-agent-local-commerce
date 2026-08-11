@@ -28,6 +28,12 @@ const INTEGRATIONS: {
   { name: 'Google Gemini', role: 'LLM reasoning & responses', status: 'connected', real: true },
   { name: 'Silero VAD', role: 'Voice activity & turn detection', status: 'connected', real: true },
   {
+    name: 'Twilio SIP Trunk',
+    role: 'Outbound calling — agent dials customers to confirm orders',
+    status: 'available',
+    real: true,
+  },
+  {
     name: 'SQLite (node:sqlite)',
     role: 'Caller memory & catalogue store',
     status: 'connected',
