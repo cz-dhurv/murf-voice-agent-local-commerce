@@ -56,35 +56,43 @@ function readCaller(id: string): { facts: Facts; user_id: string } | null {
   }
 }
 
-export async function POST(req: Request) {
-  if (!LIVEKIT_URL || !API_KEY || !API_SECRET) {
-    return NextResponse.json({ error: 'LiveKit env not configured' }, { status: 500 });
-  }
+type CallBody = {
+  caller_id?: string;
+  phone?: string;
+  order?: string;
+  slot?: string;
+  purpose?: string;
+  at?: string; // ISO datetime to schedule the call; omit to call now
+};
 
-  let body: { caller_id?: string; phone?: string; order?: string; slot?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
-  }
+type Resolved =
+  | { ok: true; clean: string; metadata: string }
+  | { ok: false; status: number; error: string; code: string };
 
-  // Resolve the call from the saved caller (if any); explicit fields override facts.
+// Turn a request into dispatch-ready metadata, or a reason not to call. Re-run at
+// fire time for scheduled calls, so a do_not_call opt-out (or a number change) made
+// AFTER scheduling is still honoured — the opt-out gate must hold at dispatch time.
+function resolveCall(body: CallBody): Resolved {
   const rec = body.caller_id ? readCaller(body.caller_id) : null;
   const facts = rec?.facts ?? {};
 
   if (facts.do_not_call === 'true') {
-    return NextResponse.json(
-      { error: 'This caller has opted out of calls.', code: 'do_not_call' },
-      { status: 409 }
-    );
+    return {
+      ok: false,
+      status: 409,
+      error: 'This caller has opted out of calls.',
+      code: 'do_not_call',
+    };
   }
 
   const clean = normalizePhone(body.phone || facts.contact || '');
   if (!clean) {
-    return NextResponse.json(
-      { error: 'No valid 10-digit mobile number to call.', code: 'no_phone' },
-      { status: 400 }
-    );
+    return {
+      ok: false,
+      status: 400,
+      error: 'No valid 10-digit mobile number to call.',
+      code: 'no_phone',
+    };
   }
 
   const metadata = JSON.stringify({
@@ -92,16 +100,72 @@ export async function POST(req: Request) {
     order_summary: body.order || facts.last_bill || '',
     delivery_slot: body.slot || facts.delivery_slot || '',
     caller_id: rec?.user_id || body.caller_id || '',
+    purpose: body.purpose === 'ready' ? 'ready' : 'confirm',
   });
+  return { ok: true, clean, metadata };
+}
 
+async function dispatch(metadata: string): Promise<string> {
   const room = `outbound-${crypto.randomUUID().slice(0, 12)}`;
-  const client = new AgentDispatchClient(LIVEKIT_URL, API_KEY, API_SECRET);
+  const client = new AgentDispatchClient(LIVEKIT_URL!, API_KEY!, API_SECRET!);
+  await client.createDispatch(room, AGENT_NAME, { metadata });
+  return room;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export async function POST(req: Request) {
+  if (!LIVEKIT_URL || !API_KEY || !API_SECRET) {
+    return NextResponse.json({ error: 'LiveKit env not configured' }, { status: 500 });
+  }
+
+  let body: CallBody;
   try {
-    await client.createDispatch(room, AGENT_NAME, { metadata });
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  }
+
+  const r = resolveCall(body);
+  if (!r.ok) return NextResponse.json({ error: r.error, code: r.code }, { status: r.status });
+
+  // Scheduled call: fire it later with an in-process timer. ponytail: setTimeout in
+  // the Next server — survives the browser tab closing, but is LOST on a server
+  // restart (no durable job store). Add a real queue (cron table / BullMQ) only if
+  // scheduled calls must survive restarts.
+  if (body.at) {
+    const when = new Date(body.at).getTime();
+    const now = Date.now();
+    if (!Number.isFinite(when) || when <= now) {
+      return NextResponse.json(
+        { error: 'Schedule time must be in the future.', code: 'bad_time' },
+        { status: 400 }
+      );
+    }
+    if (when - now > DAY_MS) {
+      return NextResponse.json(
+        { error: 'Calls can only be scheduled up to 24 hours ahead.', code: 'too_far' },
+        { status: 400 }
+      );
+    }
+    setTimeout(() => {
+      const fire = resolveCall(body); // re-check opt-out/number at fire time
+      if (!fire.ok) {
+        console.warn('scheduled call skipped:', fire.code, fire.error);
+        return;
+      }
+      dispatch(fire.metadata)
+        .then((room) => console.log('scheduled call dispatched', room))
+        .catch((e) => console.error('scheduled dispatch failed', e));
+    }, when - now);
+    return NextResponse.json({ scheduled: true, at: body.at, calling: `+91${r.clean}` });
+  }
+
+  try {
+    const room = await dispatch(r.metadata);
+    return NextResponse.json({ dispatched: true, room, calling: `+91${r.clean}` });
   } catch (e) {
     console.error('dispatch failed', e);
     return NextResponse.json({ error: 'Could not place the call.' }, { status: 502 });
   }
-
-  return NextResponse.json({ dispatched: true, room, calling: `+91${clean}` });
 }

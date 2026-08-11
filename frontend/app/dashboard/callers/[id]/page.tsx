@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Pencil, Phone, PhoneOff, PhoneOutgoing, Save, Trash2, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  PackageCheck,
+  Pencil,
+  Phone,
+  PhoneOff,
+  PhoneOutgoing,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cx, fmtWhen, initials, useCallers } from '@/components/app/dashboard/data';
 import { ConfirmDialog, LoadingRow, StatusPill } from '@/components/app/dashboard/kit';
@@ -37,6 +47,7 @@ export default function CallerDetailPage() {
   const [busy, setBusy] = useState(false);
   const [calling, setCalling] = useState(false);
   const [dncBusy, setDncBusy] = useState(false);
+  const [readyBusy, setReadyBusy] = useState(false);
   const [confirmForget, setConfirmForget] = useState(false);
 
   // Seed the form once the real row arrives (or changes).
@@ -111,6 +122,8 @@ export default function CallerDetailPage() {
   // caller hasn't opted out. The server route re-checks both — this just guides UI.
   const optedOut = caller.facts.do_not_call === 'true';
   const hasContact = Boolean(caller.facts.contact);
+  const hasOrder = Boolean(caller.facts.last_bill);
+  const orderStatus = caller.facts.order_status; // 'placed' | 'ready' | undefined
 
   const callNow = async () => {
     setCalling(true);
@@ -127,6 +140,36 @@ export default function CallerDetailPage() {
       toast.error('Could not place the call');
     } finally {
       setCalling(false);
+    }
+  };
+
+  // Order ready: mark it ready in memory, then have DukaanSaathi call the customer
+  // immediately to tell them (purpose "ready"). Replaces the old passive "the shop
+  // will let you know" — the agent actively delivers the good news.
+  const markReadyAndCall = async () => {
+    setReadyBusy(true);
+    try {
+      const ok = await patch(caller.user_id, {
+        name: caller.name,
+        language_preference: caller.language_preference,
+        facts: { ...caller.facts, order_status: 'ready' },
+      });
+      if (!ok) {
+        toast.error('Update failed');
+        return;
+      }
+      const res = await fetch('/api/calls', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ caller_id: caller.user_id, purpose: 'ready' }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j?.dispatched) toast.success(`Calling ${j.calling} — order ready…`);
+      else toast.error(j?.error || 'Marked ready, but the call could not be placed');
+    } catch {
+      toast.error('Could not place the call');
+    } finally {
+      setReadyBusy(false);
     }
   };
 
@@ -180,6 +223,13 @@ export default function CallerDetailPage() {
                       <PhoneOff className="mr-1 inline size-3" /> Do not call
                     </StatusPill>
                   )}
+                  {orderStatus === 'ready' ? (
+                    <StatusPill tone="success">
+                      <PackageCheck className="mr-1 inline size-3" /> Order ready
+                    </StatusPill>
+                  ) : (
+                    orderStatus === 'placed' && <StatusPill tone="info">Order placed</StatusPill>
+                  )}
                 </div>
               )}
               <div className="text-muted-foreground mt-1 font-mono text-xs">
@@ -215,6 +265,24 @@ export default function CallerDetailPage() {
                 >
                   <PhoneOutgoing className="size-4" /> {calling ? 'Calling…' : 'Call Now'}
                 </Button>
+                {hasOrder && (
+                  <Button
+                    size="sm"
+                    onClick={markReadyAndCall}
+                    disabled={readyBusy || optedOut || !hasContact}
+                    title={
+                      optedOut
+                        ? 'This caller has opted out of calls'
+                        : !hasContact
+                          ? 'No phone number on file for this caller'
+                          : 'Mark the order ready and call the customer to tell them'
+                    }
+                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    <PackageCheck className="size-4" />
+                    {readyBusy ? 'Calling…' : 'Order ready — call'}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"

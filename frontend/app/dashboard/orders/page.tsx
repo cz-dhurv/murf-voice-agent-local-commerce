@@ -2,33 +2,55 @@
 
 import { useMemo, useState } from 'react';
 import {
+  CalendarClock,
   CircleCheck,
   Database,
   Minus,
+  PhoneOutgoing,
   Plus,
   Receipt,
   Search,
   ShoppingCart,
   TriangleAlert,
+  User,
   X,
 } from 'lucide-react';
-import { type OrderTotal, cx, fmtInr, useCatalogue } from '@/components/app/dashboard/data';
+import { toast } from 'sonner';
+import {
+  type OrderTotal,
+  cx,
+  fmtInr,
+  useCallers,
+  useCatalogue,
+} from '@/components/app/dashboard/data';
 import { Card, EmptyState, LoadingRow, PageHeader } from '@/components/app/dashboard/kit';
 import { Button } from '@/components/ui/button';
 
 const INPUT =
   'border-input bg-background focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2';
 
-// Order builder — pick items, quantities are totalled SERVER-SIDE via
-// POST /api/catalogue (same compute_order_total the voice agent runs), so
-// out-of-stock / unknown items surface as issues instead of being billed.
+// Local "YYYY-MM-DDTHH:MM" (datetime-local wants local wall-clock, not UTC).
+function localNow(): string {
+  return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+// Order cockpit — pick a customer + items, then Place & confirm: the bill is
+// totalled SERVER-SIDE (POST /api/catalogue, same compute_order_total the voice
+// agent runs), saved to the customer's memory, and DukaanSaathi auto-dials to
+// confirm it — now, or at a scheduled time.
 export default function OrdersPage() {
   const { catalogue, loading, error, quote } = useCatalogue();
+  const { callers, patch: patchCaller } = useCallers();
 
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [result, setResult] = useState<OrderTotal | null>(null);
   const [busy, setBusy] = useState(false);
+  const [placing, setPlacing] = useState(false);
+
+  const [customerId, setCustomerId] = useState('');
+  const [slot, setSlot] = useState('');
+  const [scheduleAt, setScheduleAt] = useState('');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -37,6 +59,13 @@ export default function OrdersPage() {
       (p) => p.name.toLowerCase().includes(q) || (p.category ?? '').toLowerCase().includes(q)
     );
   }, [catalogue, query]);
+
+  const customer = useMemo(
+    () => callers.find((c) => c.user_id === customerId) ?? null,
+    [callers, customerId]
+  );
+  const noPhone = Boolean(customer) && !customer!.facts.contact;
+  const optedOut = customer?.facts.do_not_call === 'true';
 
   const cartEntries = Object.entries(cart);
 
@@ -65,11 +94,75 @@ export default function OrdersPage() {
     }
   };
 
+  // Place the order for the selected customer and fire the confirmation call.
+  // `at` (ISO) schedules the call; omit it to call now. The bill is re-quoted here
+  // so we save + speak exactly what's billed, and written into the customer's facts
+  // (merged, never clobbering existing memory) with order_status "placed".
+  const place = async (at?: string) => {
+    if (!customer) return toast.error('Pick a customer first');
+    if (noPhone) return toast.error('No phone on file — add one on the caller page');
+    if (optedOut) return toast.error('This customer has opted out of calls');
+    const items = cartEntries.map(([item_name, quantity]) => ({ item_name, quantity }));
+    if (items.length === 0) return toast.error('Add items to the order');
+
+    setPlacing(true);
+    try {
+      const q = await quote(items);
+      setResult(q);
+      if (q.line_items.length === 0) {
+        toast.error('Nothing could be billed — check stock');
+        return;
+      }
+      const nextFacts: Record<string, string> = {
+        ...customer.facts,
+        last_bill: q.summary,
+        last_bill_total: `₹${q.total}`, // mirrors memory.py f"₹{total:g}"
+        order_status: 'placed',
+      };
+      if (slot.trim()) nextFacts.delivery_slot = slot.trim();
+
+      const saved = await patchCaller(customer.user_id, {
+        name: customer.name,
+        language_preference: customer.language_preference,
+        facts: nextFacts,
+      });
+      if (!saved) {
+        toast.error('Could not save the order');
+        return;
+      }
+
+      const res = await fetch('/api/calls', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          caller_id: customer.user_id,
+          order: q.summary,
+          slot: slot.trim(),
+          purpose: 'confirm',
+          at,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j?.dispatched) toast.success(`Order placed — calling ${j.calling}…`);
+      else if (res.ok && j?.scheduled) toast.success('Order placed — confirmation call scheduled');
+      else toast.error(j?.error || 'Order saved, but the call could not be placed');
+    } catch {
+      toast.error('Could not place the order');
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  const scheduleCall = () => {
+    if (!scheduleAt) return toast.error('Pick a date and time to schedule');
+    place(new Date(scheduleAt).toISOString());
+  };
+
   return (
     <div>
       <PageHeader
-        title="Order Builder"
-        sub="Build an order and total it at shop prices — the same calculation the voice agent runs when a caller places one."
+        title="Place an Order"
+        sub="Build an order for a customer, total it at shop prices, and let DukaanSaathi auto-call to confirm — right away or at a scheduled time."
       />
 
       {loading ? (
@@ -152,7 +245,7 @@ export default function OrdersPage() {
             </div>
           </div>
 
-          {/* cart + total */}
+          {/* cart + total + place */}
           <Card className="h-fit lg:sticky lg:top-20">
             <div className="mb-4 flex items-center gap-2">
               <ShoppingCart className="text-primary size-5" />
@@ -167,6 +260,33 @@ export default function OrdersPage() {
                 </button>
               )}
             </div>
+
+            {/* customer */}
+            <label className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-medium">
+              <User className="size-3.5" /> Customer
+            </label>
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              className={cx(INPUT, 'mb-1')}
+            >
+              <option value="">Select a saved customer…</option>
+              {callers.map((c) => (
+                <option key={c.user_id} value={c.user_id}>
+                  {c.name || c.user_id}
+                  {c.facts.contact ? '' : ' — no phone'}
+                </option>
+              ))}
+            </select>
+            {noPhone && (
+              <p className="text-destructive mb-3 text-xs">
+                No phone number on file — add one on the caller page to enable the confirmation
+                call.
+              </p>
+            )}
+            {optedOut && (
+              <p className="text-destructive mb-3 text-xs">This customer has opted out of calls.</p>
+            )}
 
             {cartEntries.length === 0 ? (
               <p className="text-muted-foreground py-6 text-center text-sm">
@@ -184,12 +304,24 @@ export default function OrdersPage() {
               </ul>
             )}
 
+            {/* delivery slot */}
+            <label className="text-muted-foreground mt-1 mb-1 block text-xs font-medium">
+              Delivery slot (optional)
+            </label>
+            <input
+              value={slot}
+              onChange={(e) => setSlot(e.target.value)}
+              placeholder="e.g. morning, kal shaam"
+              className={cx(INPUT, 'mb-3')}
+            />
+
             <Button
               onClick={calculate}
               disabled={busy || cartEntries.length === 0}
+              variant="outline"
               className="w-full gap-1.5"
             >
-              <Receipt className="size-4" /> {busy ? 'Totalling…' : 'Compute total'}
+              <Receipt className="size-4" /> {busy ? 'Totalling…' : 'Preview total'}
             </Button>
 
             {result && (
@@ -236,6 +368,48 @@ export default function OrdersPage() {
                 )}
               </div>
             )}
+
+            {/* place + confirm */}
+            <div className="mt-5 space-y-2 border-t pt-4">
+              <Button
+                onClick={() => place()}
+                disabled={placing || cartEntries.length === 0 || !customer || noPhone || optedOut}
+                className="w-full gap-1.5"
+              >
+                <PhoneOutgoing className="size-4" />
+                {placing ? 'Placing…' : 'Place & confirm now'}
+              </Button>
+
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  min={localNow()}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  className={cx(INPUT, 'flex-1')}
+                  aria-label="Schedule confirmation call"
+                />
+                <Button
+                  onClick={scheduleCall}
+                  disabled={
+                    placing ||
+                    cartEntries.length === 0 ||
+                    !customer ||
+                    noPhone ||
+                    optedOut ||
+                    !scheduleAt
+                  }
+                  variant="outline"
+                  className="gap-1.5"
+                >
+                  <CalendarClock className="size-4" /> Schedule
+                </Button>
+              </div>
+              <p className="text-muted-foreground text-[11px]">
+                Scheduled calls fire from the running server (up to 24h ahead) and are lost if it
+                restarts.
+              </p>
+            </div>
           </Card>
         </div>
       )}

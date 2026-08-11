@@ -35,6 +35,28 @@ function toProduct(r: ProductRow) {
   };
 }
 
+// Spoken form of catalogue units — mirrors memory.py::_UNIT_SPOKEN so a bill
+// placed from the dashboard reads the same way the voice agent speaks it
+// ("2 litre milk", never "milk x2").
+const UNIT_SPOKEN: Record<string, string> = {
+  kg: 'kilo',
+  litre: 'litre',
+  packet: 'packet',
+  piece: 'piece',
+};
+
+function orderSummary(
+  lineItems: { name: string; unit: string | null; quantity: number }[],
+  total: number
+): string {
+  if (lineItems.length === 0) return 'no billable items';
+  const parts = lineItems.map((li) => {
+    const unit = UNIT_SPOKEN[li.unit ?? ''] ?? li.unit ?? '';
+    return [String(li.quantity), unit, li.name].filter(Boolean).join(' ');
+  });
+  return `${parts.join(', ')} = ₹${+total.toFixed(2)}`;
+}
+
 function dbStatus(file: string, records: number) {
   const exists = fs.existsSync(file);
   return {
@@ -171,6 +193,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       line_items: lineItems,
       total: Math.round(total * 100) / 100,
+      summary: orderSummary(lineItems, Math.round(total * 100) / 100),
       issues,
     });
   } finally {

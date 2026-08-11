@@ -93,14 +93,17 @@ Callers can ask prices, check availability, and order from the shop through you.
 - When they want to order, gather the items and quantities, then call compute_order_total for the subtotal at shop prices. Read the subtotal out, and if anything is out of stock or not carried, tell them that too — never quietly leave it off.
 - Before confirming, you MUST have the caller's phone number — a 10-digit mobile the shop can call for delivery. Always ask for it if you don't have it: "डिलीवरी के लिए आपका मोबाइल नंबर बता दीजिए?" (or the English equivalent). Also ask their preferred delivery slot (e.g. "किस समय डिलीवरी चाहिए — सुबह या शाम?"). Without a valid phone number you cannot book the order.
 - Repeat the full order back in one short line — items, subtotal, delivery slot, and phone number — so they can confirm.
-- Once they confirm, call place_order with the items (as a list), their phone number, and the delivery slot. It prices the bill from the shop catalogue and saves it to the caller's record. Read the bill total back, then tell them it's noted and the shop will confirm the final price and timing.
+- Once they confirm, call place_order with the items (as a list), their phone number, and the delivery slot. It prices the bill from the shop catalogue and saves it to the caller's record. Read the bill total back, then tell them it's noted, the shop will confirm the final price, and that DukaanSaathi will call them back the moment their order is ready.
 - If place_order says the phone number is missing or invalid, ask the caller for a correct 10-digit mobile number and call place_order again — do not book without one.
 - For a RETURNING caller, you may already remember their usual order, slot, and phone — offer those instead of asking again: "पिछली बार आपने ५ किलो आटा सुबह भेजा था, फ़ोन वही — वही फिर से भेज दूँ?" Still check today's price and stock with the tools, and still call place_order. Only ask for a slot or phone you do not already have.
 - A phone number given for delivery is ordinary order info — you may take and remember it. But NEVER ask for or save an OTP, PIN, Aadhaar, or bank account number.
 - If a tool comes back with an error (it couldn't read the catalogue), tell the caller you can't check that right now and to try again in a moment. Never make up a price or pretend an item is in stock.
 
 OUTBOUND CALLS
-Sometimes you place the call yourself — for example, to confirm an order the caller placed with the shop. When you do, the very first line you speak is given to you: it already says who you are, why you're calling, and that they can ask you to stop. Do NOT add a second fresh greeting on top of it. After that opening, help with exactly that purpose — confirm the order and delivery slot, answer their questions, and adjust the order with your tools if they ask. Never pitch anything they did not ask about on an outbound call.
+Sometimes you place the call yourself. Your first line is given to you: it already says who you are, why you're calling, and that they can ask you to stop. Do NOT add a second fresh greeting on top of it. There are two reasons you call out:
+- To CONFIRM an order the caller placed — check the items and delivery slot are right.
+- To tell them their order is now READY — the shop has prepared it and you're letting them know.
+Your opening line already states which one it is. After it, help with exactly that purpose — sort out the delivery slot, answer their questions, and adjust the order with your tools if they ask. Never pitch anything they did not ask about on an outbound call.
 If the caller asks you to stop calling, or says they don't want these calls, respond warmly that you understand and won't call again — e.g. "ठीक है जी, मैं आपको दोबारा कॉल नहीं करूँगा।" (or the English equivalent) — and then call save_caller_memory with facts_json '{"do_not_call": "true"}'. Do this the moment they decline, even mid-conversation. Never argue or try to talk them out of it.
 """
 
@@ -310,7 +313,8 @@ class Assistant(Agent):
             return (
                 f"Order booked for this call: {bill['summary']}, phone {clean_phone}. "
                 "(No caller id, so it won't be remembered next time.) "
-                "Tell the caller the shop will confirm final price and timing."
+                "Tell the caller the shop will confirm the final price, and that "
+                "DukaanSaathi will call them back the moment their order is ready."
             )
         # Store the itemised bill as caller facts so it shows on the dashboard's
         # caller pages (which render every fact as a line). Prices are shop truth.
@@ -320,6 +324,7 @@ class Assistant(Agent):
             "last_bill": bill["summary"],
             "last_bill_total": f"₹{bill['total']:g}",
             "contact": f"{contact_name} {clean_phone}".strip() if contact_name else clean_phone,
+            "order_status": "placed",  # dashboard flips this to "ready" to trigger the ready-call
         }
         if delivery_slot:
             facts["delivery_slot"] = delivery_slot
@@ -333,8 +338,9 @@ class Assistant(Agent):
             issues_note = " Also tell them: " + "; ".join(bill["issues"]) + "."
         return (
             f"Order booked. Bill: {bill['summary']}, phone {clean_phone}. "
-            "Read the bill total back, tell the caller the shop will confirm final price "
-            f"and timing, and that you'll remember this as their usual.{issues_note}"
+            "Read the bill total back, tell the caller the shop will confirm the final price, "
+            "that you'll remember this as their usual, and that DukaanSaathi will call them "
+            f"back the moment their order is ready.{issues_note}"
         )
 
     @function_tool
@@ -504,17 +510,36 @@ def _job_metadata(ctx: JobContext) -> dict:
 
 
 def _outbound_opening(
-    *, lang: str, name: Optional[str], order_summary: str, delivery_slot: str
+    *,
+    lang: str,
+    name: Optional[str],
+    order_summary: str,
+    delivery_slot: str,
+    purpose: str = "confirm",
 ) -> str:
     """The mandatory outbound opening spoken verbatim (never through the LLM, so it
     can't drift): within the first two sentences it says who is calling, why, and
-    that the caller can stop the calls — the non-negotiable Day-6 requirement."""
+    that the caller can stop the calls — the non-negotiable Day-6 requirement.
+
+    Two purposes: "confirm" (check the order we booked) and "ready" (the shop has
+    prepared the order and we're calling to say so). Both keep the who/why/opt-out.
+    """
     if lang == "en":
         greet = f"Hello {name}!" if name else "Hello!"
+        stop = (
+            "If you would rather not get these calls, just tell me and I won't call again."
+        )
+        if purpose == "ready":
+            who_why = (
+                f"{greet} This is DukaanSaathi, calling from your local shop with good news. {stop}"
+            )
+            if order_summary:
+                slot = f", ready for {delivery_slot} delivery" if delivery_slot else ""
+                return f"{who_why} Your order — {order_summary} — is ready now{slot}. Shall the shop send it over?"
+            return f"{who_why} Your order is ready now. Shall the shop send it over?"
         who_why = (
             f"{greet} This is DukaanSaathi, calling on behalf of your local shop to "
-            "confirm your order. If you would rather not get these calls, just tell me "
-            "and I won't call again."
+            f"confirm your order. {stop}"
         )
         if order_summary:
             slot = f", delivery {delivery_slot}" if delivery_slot else ""
@@ -522,9 +547,18 @@ def _outbound_opening(
         return f"{who_why} Is now a good time to talk?"
     # Hindi default — Devanagari, never romanized.
     greet = f"नमस्ते {name} जी!" if name else "नमस्ते!"
+    stop = "अगर आप ये कॉल नहीं चाहते तो बस बता दीजिए, मैं दोबारा कॉल नहीं करूँगा।"
+    if purpose == "ready":
+        who_why = (
+            f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से एक ख़ुशख़बरी लेकर। {stop}"
+        )
+        if order_summary:
+            slot = f", {delivery_slot} की डिलीवरी के लिए" if delivery_slot else ""
+            return f"{who_why} आपका ऑर्डर — {order_summary} — अब तैयार है{slot}। क्या दुकान से भेज दें?"
+        return f"{who_why} आपका ऑर्डर अब तैयार है। क्या दुकान से भेज दें?"
     who_why = (
         f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से आपका ऑर्डर कन्फर्म "
-        "करने के लिए। अगर आप ये कॉल नहीं चाहते तो बस बता दीजिए, मैं दोबारा कॉल नहीं करूँगा।"
+        f"करने के लिए। {stop}"
     )
     if order_summary:
         slot = f", डिलीवरी {delivery_slot}" if delivery_slot else ""
@@ -584,8 +618,12 @@ async def _dial_and_confirm(
         name=name,
         order_summary=meta.get("order_summary", ""),
         delivery_slot=meta.get("delivery_slot", ""),
+        purpose=meta.get("purpose") or "confirm",
     )
-    logger.info("outbound connected to %s (caller_id=%s)", dial_to, assistant.user_id)
+    logger.info(
+        "outbound connected to %s (caller_id=%s purpose=%s)",
+        dial_to, assistant.user_id, meta.get("purpose") or "confirm",
+    )
     # say() (not generate_reply) keeps the disclosure verbatim; add_to_chat_ctx
     # (default True) puts the order into context so the LLM can field follow-ups.
     await session.say(opening, allow_interruptions=True).wait_for_playout()

@@ -108,7 +108,7 @@ export type Product = {
 };
 
 export type OrderLine = Product & { quantity: number; line_total: number };
-export type OrderTotal = { line_items: OrderLine[]; total: number; issues: string[] };
+export type OrderTotal = { line_items: OrderLine[]; total: number; summary: string; issues: string[] };
 
 type CatalogueState = {
   catalogue: Product[];

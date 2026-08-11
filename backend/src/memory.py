@@ -274,15 +274,32 @@ def normalize_phone(raw: str) -> Optional[str]:
     return None
 
 
+# Spoken form of catalogue units, so an order reads naturally over the phone
+# ("2 litre milk", "5 kilo basmati rice") instead of the unreadable "milk x2".
+# Falls back to the raw unit for anything unmapped.
+_UNIT_SPOKEN = {"kg": "kilo", "litre": "litre", "packet": "packet", "piece": "piece"}
+
+
+def order_line_phrase(li: dict[str, Any]) -> str:
+    """One order line as a human/phone-friendly phrase, e.g. "2 litre milk".
+
+    `li` is a line item from compute_order_total (has quantity_asked, unit, name).
+    """
+    qty = f"{li['quantity_asked']:g}"
+    unit = _UNIT_SPOKEN.get(li.get("unit") or "", li.get("unit") or "")
+    return " ".join(p for p in (qty, unit, li["name"]) if p)
+
+
 def build_bill(items: list[dict[str, Any]], phone: str) -> dict[str, Any]:
     """Price an order at shop rates and wrap it as a caller bill.
 
     Prices come from the catalogue (never the caller/LLM), so the stored bill is
     the shop's own truth. Returns the order total dict plus `phone` and a short
-    human `summary` line the dashboard shows as a fact.
+    `summary` line — the dashboard shows it as a fact AND the agent speaks it on
+    the confirmation call, so it must read naturally out loud (no "x2").
     """
     order = compute_order_total(items)
-    parts = [f"{li['name']} x{li['quantity_asked']:g}" for li in order["line_items"]]
+    parts = [order_line_phrase(li) for li in order["line_items"]]
     summary = f"{', '.join(parts)} = ₹{order['total']:g}" if parts else "no billable items"
     return {**order, "phone": phone, "summary": summary}
 
@@ -378,11 +395,19 @@ def _selfcheck() -> None:
         assert normalize_phone("1234567890") is None      # bad leading digit
         assert normalize_phone("") is None
 
-        # bill: priced from the catalogue, carries phone + a spoken summary
+        # bill: priced from the catalogue, carries phone + a spoken summary that
+        # reads naturally out loud ("2 kilo rice", never "rice x2").
         bill = build_bill([{"item_name": "rice", "quantity": 2}], "9876543210")
         assert bill["total"] == round(58.0 * 2, 2)
         assert bill["phone"] == "9876543210"
-        assert "rice" in bill["summary"] and "116" in bill["summary"]
+        assert bill["summary"] == "2 kilo rice = ₹116", bill["summary"]
+        assert "x" not in bill["summary"]  # the old "rice x2" bug must stay gone
+        # multi-line order reads with each item's own unit
+        two = build_bill(
+            [{"item_name": "milk", "quantity": 2}, {"item_name": "basmati rice", "quantity": 5}],
+            "9876543210",
+        )
+        assert two["summary"] == "2 litre milk, 5 kilo basmati rice = ₹587", two["summary"]
 
         print("memory selfcheck: OK", f"({path})")
     finally:

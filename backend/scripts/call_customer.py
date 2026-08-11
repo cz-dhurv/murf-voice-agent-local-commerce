@@ -44,12 +44,14 @@ def resolve_call(
     phone: str = "",
     order: str = "",
     slot: str = "",
+    purpose: str = "confirm",
 ) -> dict[str, str]:
     """Build the dispatch metadata for one outbound call, or raise SkipCall.
 
     Explicit args win over the caller's saved facts, so an ad-hoc call needs no
     stored record. Honours the do_not_call opt-out and refuses a caller with no
-    reachable mobile — the two reasons we must never place the call.
+    reachable mobile — the two reasons we must never place the call. `purpose` is
+    "confirm" (check the booked order) or "ready" (order prepared — call to say so).
     """
     facts = (rec or {}).get("facts", {}) or {}
     if facts.get("do_not_call") == "true":
@@ -65,6 +67,7 @@ def resolve_call(
         "order_summary": order or facts.get("last_bill", ""),
         "delivery_slot": slot or facts.get("delivery_slot", ""),
         "caller_id": (rec or {}).get("user_id", "") or "",
+        "purpose": purpose or "confirm",
     }
 
 
@@ -108,11 +111,13 @@ def _selfcheck() -> None:
     assert m["order_summary"] == "5kg atta = ₹210"
     assert m["delivery_slot"] == "morning"
     assert m["caller_id"] == "web-abc"
+    assert m["purpose"] == "confirm"  # defaults to confirm
 
-    # explicit args override stored facts
-    m = resolve_call(rec, phone="+91 98765-00000", order="1L milk", slot="shaam")
+    # explicit args override stored facts; purpose carries through
+    m = resolve_call(rec, phone="+91 98765-00000", order="1L milk", slot="shaam", purpose="ready")
     assert m["phone_number"] == "+919876500000", m
     assert m["order_summary"] == "1L milk" and m["delivery_slot"] == "shaam"
+    assert m["purpose"] == "ready"
 
     # opt-out is refused before anything else, even with a valid number present
     try:
@@ -148,6 +153,12 @@ def main() -> int:
     ap.add_argument("--phone", default="", help="explicit mobile (overrides saved contact)")
     ap.add_argument("--order", default="", help="order summary to read back")
     ap.add_argument("--slot", default="", help="delivery slot to confirm")
+    ap.add_argument(
+        "--purpose",
+        default="confirm",
+        choices=["confirm", "ready"],
+        help="'confirm' the booked order (default) or tell them it's 'ready'",
+    )
     ap.add_argument("--dry-run", action="store_true", help="resolve + print metadata, don't dial")
     ap.add_argument("--selfcheck", action="store_true", help="run offline logic asserts and exit")
     args = ap.parse_args()
@@ -167,7 +178,7 @@ def main() -> int:
             return 2
 
     try:
-        meta = resolve_call(rec, phone=args.phone, order=args.order, slot=args.slot)
+        meta = resolve_call(rec, phone=args.phone, order=args.order, slot=args.slot, purpose=args.purpose)
     except SkipCall as e:
         print(f"Not calling: {e}", file=sys.stderr)
         return 1
