@@ -63,11 +63,16 @@ Never claim:
 - That a specific scheme application will be approved.
 - To know live wholesale or market prices. The only prices you quote are the shop's own catalogue prices.
 
-Escalation — when something is outside your scope, say so honestly and direct the user to:
-- A Chartered Accountant for tax or legal matters.
-- Their bank helpline for account or payment issues.
-- The relevant scheme helpline for government scheme status.
-- A local ONDC support center for marketplace issues.
+ESCALATION — know when to STOP and ask a human (do not guess)
+Two kinds of problem are NOT yours to settle. Recognise them and hand them to a person with the create_escalation tool instead of improvising an answer:
+- Order disputes: the caller says an order is wrong, missing, damaged, never arrived, over-charged, or wants a refund or to complain — anything you cannot fix with your ordering tools.
+- Scheme or paperwork help: the caller wants real help applying for a government scheme or filling a form (PM SVANidhi, Mudra, Udyam/GST registration, a subsidy) — more than the one line of general information you may give.
+How to escalate, every time:
+- First ASK permission: "क्या मैं यह हमारी टीम को भेज दूँ ताकि कोई इंसान आपकी मदद करे?" (or the English equivalent). If the caller says no, respect it and do NOT call the tool.
+- If they agree, call create_escalation with the right reason_category, a short plain-language summary, and an honest urgency (emergency only if money is lost or the caller is very distressed).
+- NEVER put an OTP, PIN, Aadhaar number, or bank account number in the summary — describe the problem without them.
+- After it saves, read the caller the reference id it gives you and say a person from the team will follow up. Do NOT promise a specific day or time, and never claim the issue is already fixed.
+For anything else outside your scope (detailed tax or legal questions, a bank account or payment failure), you don't need to escalate — answer honestly and point them to a Chartered Accountant, their bank helpline, or the relevant scheme helpline.
 
 STYLE
 Speak warmly, like a helpful friend standing at the counter — not a call center. Address the user as "आप" and stay respectful. When it fits, open with a small acknowledgement like "बिलकुल", "अच्छा", "हाँ जी", or "कोई बात नहीं" (in Devanagari, or their English equivalents for an English caller) so the user feels heard. Speak in short, clear sentences — one idea at a time. Explain any technical term the moment you use it. Use rupees when discussing money. Gently encourage the user — remind them it is easy and they can do it themselves. Do not use emojis, markdown formatting, bullet points, or numbered lists. Keep your sentences under twenty words. You are speaking out loud, not writing.
@@ -100,10 +105,11 @@ Callers can ask prices, check availability, and order from the shop through you.
 - If a tool comes back with an error (it couldn't read the catalogue), tell the caller you can't check that right now and to try again in a moment. Never make up a price or pretend an item is in stock.
 
 OUTBOUND CALLS
-Sometimes you place the call yourself. Your first line is given to you: it already says who you are, why you're calling, and that they can ask you to stop. Do NOT add a second fresh greeting on top of it. There are two reasons you call out:
+Sometimes you place the call yourself. Your first line is given to you: it already says who you are, why you're calling, and that they can ask you to stop. Do NOT add a second fresh greeting on top of it. There are three reasons you call out:
 - To CONFIRM an order the caller placed — check the items and delivery slot are right.
 - To tell them their order is now READY — the shop has prepared it and you're letting them know.
-Your opening line already states which one it is. After it, help with exactly that purpose — sort out the delivery slot, answer their questions, and adjust the order with your tools if they ask. Never pitch anything they did not ask about on an outbound call.
+- To tell them an earlier request has been RESOLVED — a person looked into a problem or paperwork they raised, and you're calling with the update.
+Your opening line already states which one it is. After it, help with exactly that purpose — sort out the delivery slot, answer their questions, adjust the order with your tools if they ask, or (for a resolved request) check they're satisfied and answer anything left. Never pitch anything they did not ask about on an outbound call.
 If the caller asks you to stop calling, or says they don't want these calls, respond warmly that you understand and won't call again — e.g. "ठीक है जी, मैं आपको दोबारा कॉल नहीं करूँगा।" (or the English equivalent) — and then call save_caller_memory with facts_json '{"do_not_call": "true"}'. Do this the moment they decline, even mid-conversation. Never argue or try to talk them out of it.
 """
 
@@ -126,6 +132,9 @@ class Assistant(Agent):
         # Stable id for the current caller (set from the frontend `caller_id`
         # attribute once the participant joins). All tools operate on this caller.
         self.user_id: Optional[str] = None
+        # Caller's language ('hi'/'en'), set alongside user_id — stamped onto any
+        # escalation so the human follow-up knows which language to call back in.
+        self.language: Optional[str] = None
 
     @function_tool
     async def lookup_caller(self, context: RunContext) -> str:
@@ -359,6 +368,68 @@ class Assistant(Agent):
             else "There was nothing saved for this caller."
         )
 
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        reason_category: str,
+        summary: str,
+        urgency: str = "medium",
+        follow_up_method: str = "",
+    ) -> str:
+        """Hand a problem to a human helper when it is beyond what you should decide.
+
+        Use this in TWO situations, and ONLY after the caller agrees you may pass it on:
+        - "order_dispute": the caller says an order is wrong, missing, damaged, never
+          arrived, over-charged, or wants a refund/complaint you cannot settle yourself.
+        - "scheme_paperwork": the caller needs real help applying for a government scheme
+          or filling a form (PM SVANidhi, Mudra, Udyam/GST registration, a subsidy) —
+          more than the one line of general info you may give.
+
+        Ask permission first ("क्या मैं यह हमारी टीम को भेज दूँ?" / "Shall I pass this to
+        our team?"). If they say no, do NOT call this. NEVER put an OTP, PIN, Aadhaar, or
+        bank account number in the summary — describe the problem without them. After it
+        saves, read the caller the reference id and say a person will follow up; do NOT
+        promise a specific day or time, and never say it is already fixed.
+
+        Args:
+            reason_category: "order_dispute" or "scheme_paperwork".
+            summary: One or two plain sentences a human can act on — what the caller needs
+                plus any order/scheme detail. No secrets.
+            urgency: "low", "medium", "high", or "emergency" (emergency = money lost or a
+                very distressed caller).
+            follow_up_method: How to reach them back, e.g. "call back on file" or a slot
+                they gave.
+        """
+        rec = await memory.aget_caller(self.user_id) if self.user_id else None
+        res = await memory.acreate_escalation(
+            self.user_id,
+            reason_category,
+            summary,
+            urgency=urgency,
+            caller_name=(rec.get("name") if rec else None),
+            language=self.language,
+            follow_up_method=follow_up_method or None,
+        )
+        eid = res["escalation_id"]
+        esc = await memory.aget_escalation(eid)
+        if esc:
+            await memory.send_discord_alert(esc)  # best-effort; DB row already saved
+        logger.info(
+            "escalation %s for %s (category=%s urgency=%s created=%s)",
+            eid, self.user_id, reason_category, urgency, res["created"],
+        )
+        if res["created"]:
+            return (
+                f"Escalation filed with reference id {eid}. Read this id to the caller, tell "
+                "them a person from the team will follow up on it, and do NOT promise a "
+                "specific time. Then ask if there is anything else you can help with."
+            )
+        return (
+            f"This is already logged under reference {eid} (updated, not duplicated). Tell the "
+            f"caller it's already with the team under id {eid} and a person will follow up."
+        )
+
 
 
 server = AgentServer()
@@ -469,6 +540,7 @@ async def my_agent(ctx: JobContext):
     attrs = await _wait_for_attributes(participant)
     assistant.user_id = attrs.get("caller_id")
     lang = attrs.get("language")
+    assistant.language = lang  # stamped onto any escalation filed during the call
     # Visible in the worker log so you can confirm the caller id actually arrived —
     # if this is None, saves will no-op and the dashboard stays empty.
     logger.info("call bound: caller_id=%s language=%s", assistant.user_id, lang)
@@ -521,8 +593,9 @@ def _outbound_opening(
     can't drift): within the first two sentences it says who is calling, why, and
     that the caller can stop the calls — the non-negotiable Day-6 requirement.
 
-    Two purposes: "confirm" (check the order we booked) and "ready" (the shop has
-    prepared the order and we're calling to say so). Both keep the who/why/opt-out.
+    Three purposes: "confirm" (check the order we booked), "ready" (the shop has
+    prepared the order), and "escalation_resolved" (a human looked into a problem
+    the caller raised and it's sorted). All keep the who/why/opt-out.
     """
     if lang == "en":
         greet = f"Hello {name}!" if name else "Hello!"
@@ -537,6 +610,15 @@ def _outbound_opening(
                 slot = f", ready for {delivery_slot} delivery" if delivery_slot else ""
                 return f"{who_why} Your order — {order_summary} — is ready now{slot}. Shall the shop send it over?"
             return f"{who_why} Your order is ready now. Shall the shop send it over?"
+        if purpose == "escalation_resolved":
+            who_why = (
+                f"{greet} This is DukaanSaathi, calling on behalf of your local shop about "
+                f"the request you raised with us. {stop}"
+            )
+            return (
+                f"{who_why} Good news — someone from our team has looked into it and sorted "
+                "it out. Is now a good time to go over it?"
+            )
         who_why = (
             f"{greet} This is DukaanSaathi, calling on behalf of your local shop to "
             f"confirm your order. {stop}"
@@ -556,6 +638,15 @@ def _outbound_opening(
             slot = f", {delivery_slot} की डिलीवरी के लिए" if delivery_slot else ""
             return f"{who_why} आपका ऑर्डर — {order_summary} — अब तैयार है{slot}। क्या दुकान से भेज दें?"
         return f"{who_why} आपका ऑर्डर अब तैयार है। क्या दुकान से भेज दें?"
+    if purpose == "escalation_resolved":
+        who_why = (
+            f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से — आपने जो request भेजी थी, "
+            f"उसके बारे में। {stop}"
+        )
+        return (
+            f"{who_why} अच्छी ख़बर — हमारी टीम ने उसे देख लिया है और हल कर दिया है। "
+            "क्या अभी उस पर बात कर लें?"
+        )
     who_why = (
         f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से आपका ऑर्डर कन्फर्म "
         f"करने के लिए। {stop}"
@@ -612,17 +703,19 @@ async def _dial_and_confirm(
     rec = await memory.aget_caller(assistant.user_id) if assistant.user_id else None
     lang = (rec.get("language_preference") if rec else None) or "hi"
     name = rec.get("name") if rec else None
+    assistant.language = lang  # stamped onto any escalation filed mid-call
 
+    purpose = meta.get("purpose") or "confirm"
     opening = _outbound_opening(
         lang=lang,
         name=name,
         order_summary=meta.get("order_summary", ""),
         delivery_slot=meta.get("delivery_slot", ""),
-        purpose=meta.get("purpose") or "confirm",
+        purpose=purpose,
     )
     logger.info(
-        "outbound connected to %s (caller_id=%s purpose=%s)",
-        dial_to, assistant.user_id, meta.get("purpose") or "confirm",
+        "outbound connected to %s (caller_id=%s purpose=%s escalation=%s)",
+        dial_to, assistant.user_id, purpose, meta.get("escalation_id") or "-",
     )
     # say() (not generate_reply) keeps the disclosure verbatim; add_to_chat_ctx
     # (default True) puts the order into context so the LLM can field follow-ups.

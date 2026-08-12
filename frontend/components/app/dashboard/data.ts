@@ -108,7 +108,12 @@ export type Product = {
 };
 
 export type OrderLine = Product & { quantity: number; line_total: number };
-export type OrderTotal = { line_items: OrderLine[]; total: number; summary: string; issues: string[] };
+export type OrderTotal = {
+  line_items: OrderLine[];
+  total: number;
+  summary: string;
+  issues: string[];
+};
 
 type CatalogueState = {
   catalogue: Product[];
@@ -190,8 +195,73 @@ export function useCatalogue(): CatalogueState {
   };
 }
 
-// ---------------- formatters (shared by every dashboard surface) ----------------
+// Shapes returned by /api/escalations — the Day 7 "ask a human for help" queue,
+// same SQLite file the Python agent writes via create_escalation.
+export type Escalation = {
+  escalation_id: string;
+  user_id: string | null;
+  caller_name: string | null;
+  reason_category: string;
+  summary: string;
+  urgency: string;
+  language: string | null;
+  follow_up_method: string | null;
+  status: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
 
+type EscalationsState = {
+  escalations: Escalation[];
+  loading: boolean;
+  error: boolean;
+  reload: () => Promise<void>;
+  setStatus: (id: string, status: string) => Promise<boolean>;
+};
+
+/**
+ * Real escalation queue. Mirrors useCallers/useCatalogue: no fabricated
+ * fallbacks — an unreachable API surfaces as `error`. Rows arrive already sorted
+ * most-urgent-then-newest by the route.
+ */
+export function useEscalations(): EscalationsState {
+  const [data, setData] = useState<Escalation[] | null>(null);
+  const [error, setError] = useState(false);
+
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch('/api/escalations', { cache: 'no-store' });
+      const j = await res.json();
+      setData(Array.isArray(j.escalations) ? j.escalations : []);
+      setError(false);
+    } catch {
+      setData([]);
+      setError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const setStatus = useCallback(
+    async (id: string, status: string) => {
+      const res = await fetch(`/api/escalations?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const ok = res.ok && (await res.json())?.updated === true;
+      await reload();
+      return ok;
+    },
+    [reload]
+  );
+
+  return { escalations: data ?? [], loading: data === null, error, reload, setStatus };
+}
+
+// ---------------- formatters (shared by every dashboard surface) ----------------
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
 }

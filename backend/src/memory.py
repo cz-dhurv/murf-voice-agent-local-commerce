@@ -11,11 +11,15 @@ The agent reads/writes this through function tools, never through the prompt.
 
 import asyncio
 import json
+import logging
 import os
 import re
+import secrets
 import sqlite3
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, TypedDict
+
+logger = logging.getLogger("memory")
 
 _DB_PATH = os.getenv(
     "MEMORY_DB_PATH",
@@ -96,6 +100,26 @@ def init_db() -> None:
                 unit        TEXT,
                 shop_price  REAL NOT NULL,
                 stock_qty   REAL NOT NULL
+            )
+            """
+        )
+        # Day 7: requests the agent hands off to a human (order disputes, scheme/
+        # paperwork help). status: open -> in_progress -> resolved. One row per
+        # caller+category stays open at a time (see create_escalation dedupe).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS escalations (
+                escalation_id    TEXT PRIMARY KEY,
+                user_id          TEXT,
+                caller_name      TEXT,
+                reason_category  TEXT NOT NULL,
+                summary          TEXT NOT NULL,
+                urgency          TEXT NOT NULL DEFAULT 'medium',
+                language         TEXT,
+                follow_up_method TEXT,
+                status           TEXT NOT NULL DEFAULT 'open',
+                created_at       TEXT,
+                updated_at       TEXT
             )
             """
         )
@@ -304,6 +328,153 @@ def build_bill(items: list[dict[str, Any]], phone: str) -> dict[str, Any]:
     return {**order, "phone": phone, "summary": summary}
 
 
+# ---- escalations (Day 7: know when to ask a human for help) ----
+# Two things the agent must hand to a person instead of guessing at.
+_REASON_CATEGORIES = ("order_dispute", "scheme_paperwork")
+_URGENCIES = ("low", "medium", "high", "emergency")
+# Urgency rank for list ordering: most urgent first, then newest.
+_URGENCY_ORDER = (
+    "CASE urgency WHEN 'emergency' THEN 0 WHEN 'high' THEN 1 "
+    "WHEN 'medium' THEN 2 ELSE 3 END"
+)
+
+# Sensitive tokens that must NEVER reach storage, the dashboard, or Discord —
+# a safety net UNDER the prompt rule (the agent is told not to include these, but
+# we never trust an LLM with secret data). Order: labelled OTP/PIN first, then
+# bare Aadhaar-shaped (12 digits) and bank-account-shaped (9-18 digit) runs.
+_SENSITIVE_PATTERNS = [
+    re.compile(r"\b(?:otp|pin|password|cvv|passcode)\b\D{0,8}\d{3,8}", re.I),
+    re.compile(r"\b\d{4}\s?\d{4}\s?\d{4}\b"),
+    re.compile(r"\b\d{9,18}\b"),
+]
+
+
+def _redact(text: str) -> str:
+    """Replace OTP/PIN/Aadhaar/bank-account-shaped tokens with [redacted]."""
+    clean = text or ""
+    for pat in _SENSITIVE_PATTERNS:
+        clean = pat.sub("[redacted]", clean)
+    return clean
+
+
+def create_escalation(
+    user_id: Optional[str],
+    reason_category: str,
+    summary: str,
+    *,
+    urgency: str = "medium",
+    caller_name: Optional[str] = None,
+    language: Optional[str] = None,
+    follow_up_method: Optional[str] = None,
+) -> dict[str, Any]:
+    """Log a request for human help, redacting sensitive tokens from the summary.
+
+    De-dupe: if this caller already has a non-resolved escalation in the SAME
+    category, refresh it (summary/urgency) instead of filing a second — a caller
+    who repeats themselves must not spam the shopkeeper. Anonymous callers (no
+    user_id) can't be de-duped, so each of theirs is filed fresh.
+    Returns {"escalation_id": str, "created": bool}.
+    """
+    category = reason_category if reason_category in _REASON_CATEGORIES else "other"
+    level = urgency if urgency in _URGENCIES else "medium"
+    clean_summary = _redact(summary or "").strip()[:600]
+    with _connect() as conn:
+        if user_id:
+            existing = conn.execute(
+                "SELECT escalation_id FROM escalations "
+                "WHERE user_id = ? AND reason_category = ? AND status != 'resolved'",
+                (user_id, category),
+            ).fetchone()
+            if existing:
+                eid = existing["escalation_id"]
+                conn.execute(
+                    "UPDATE escalations SET summary = ?, urgency = ?, "
+                    "updated_at = datetime('now') WHERE escalation_id = ?",
+                    (clean_summary, level, eid),
+                )
+                return {"escalation_id": eid, "created": False}
+        eid = "ESC-" + secrets.token_hex(3).upper()
+        conn.execute(
+            "INSERT INTO escalations (escalation_id, user_id, caller_name, "
+            "reason_category, summary, urgency, language, follow_up_method, status, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', datetime('now'), datetime('now'))",
+            (eid, user_id, caller_name, category, clean_summary, level, language,
+             follow_up_method),
+        )
+    return {"escalation_id": eid, "created": True}
+
+
+def list_escalations(status: Optional[str] = None) -> list[dict[str, Any]]:
+    """All escalations (or one status), most-urgent-then-newest first."""
+    query = "SELECT * FROM escalations"
+    params: tuple[Any, ...] = ()
+    if status:
+        query += " WHERE status = ?"
+        params = (status,)
+    query += f" ORDER BY {_URGENCY_ORDER}, datetime(created_at) DESC"
+    with _connect() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_escalation(escalation_id: str) -> Optional[dict[str, Any]]:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM escalations WHERE escalation_id = ?", (escalation_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def update_escalation_status(escalation_id: str, status: str) -> bool:
+    """Move an escalation between open/in_progress/resolved. False on unknown status."""
+    if status not in ("open", "in_progress", "resolved"):
+        return False
+    with _connect() as conn:
+        cur = conn.execute(
+            "UPDATE escalations SET status = ?, updated_at = datetime('now') "
+            "WHERE escalation_id = ?",
+            (status, escalation_id),
+        )
+    return cur.rowcount > 0
+
+
+async def send_discord_alert(esc: dict[str, Any]) -> bool:
+    """Best-effort ping to a Discord webhook when an escalation is filed.
+
+    The DB row is the source of truth; this is a convenience so a human sees it
+    immediately. No-ops (returns False) when DISCORD_ESCALATION_WEBHOOK_URL is
+    unset, and never raises into the call path — a failed alert is logged, not fatal.
+    """
+    url = os.getenv("DISCORD_ESCALATION_WEBHOOK_URL", "").strip()
+    if not url or not esc:
+        return False
+    emoji = {"emergency": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(
+        esc.get("urgency", ""), "🟡"
+    )
+    cat = {"order_dispute": "Order dispute", "scheme_paperwork": "Scheme / paperwork"}.get(
+        esc.get("reason_category", ""), esc.get("reason_category") or "other"
+    )
+    who = esc.get("caller_name") or esc.get("user_id") or "unknown caller"
+    lines = [
+        f"{emoji} **Human help needed** · `{esc.get('escalation_id', '')}`",
+        f"**{cat}** — urgency **{esc.get('urgency', 'medium')}**",
+        f"Caller: {who}",
+        f"> {esc.get('summary') or '(no summary)'}",
+    ]
+    if esc.get("follow_up_method"):
+        lines.append(f"Follow up via: {esc['follow_up_method']}")
+    try:
+        import httpx  # lazy: keeps memory.py stdlib-only at import time
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(url, json={"content": "\n".join(lines)})
+        return resp.status_code < 300
+    except Exception:
+        logger.warning("discord escalation alert failed", exc_info=True)
+        return False
+
+
 
 # ---- async wrappers (sqlite is blocking; keep the agent event loop free) ----
 async def aget_caller(user_id: str) -> Optional[CallerRecord]:
@@ -328,6 +499,18 @@ async def acompute_order_total(items: list[dict[str, Any]]) -> dict[str, Any]:
 
 async def abuild_bill(items: list[dict[str, Any]], phone: str) -> dict[str, Any]:
     return await asyncio.to_thread(build_bill, items, phone)
+
+
+async def acreate_escalation(
+    user_id: Optional[str], reason_category: str, summary: str, **kwargs: Any
+) -> dict[str, Any]:
+    return await asyncio.to_thread(
+        lambda: create_escalation(user_id, reason_category, summary, **kwargs)
+    )
+
+
+async def aget_escalation(escalation_id: str) -> Optional[dict[str, Any]]:
+    return await asyncio.to_thread(get_escalation, escalation_id)
 
 
 def _selfcheck() -> None:
@@ -408,6 +591,37 @@ def _selfcheck() -> None:
             "9876543210",
         )
         assert two["summary"] == "2 litre milk, 5 kilo basmati rice = ₹587", two["summary"]
+
+        # escalations (Day 7): file, redact, dedupe, status transitions, ordering
+        e1 = create_escalation(
+            "u9", "order_dispute", "Paid but order not delivered. OTP is 445566.",
+            urgency="high", caller_name="Sita",
+        )
+        assert e1["created"] is True and e1["escalation_id"].startswith("ESC-")
+        row = get_escalation(e1["escalation_id"])
+        assert row and row["status"] == "open" and row["urgency"] == "high"
+        # sensitive token stripped, rest of the summary kept
+        assert "445566" not in row["summary"] and "[redacted]" in row["summary"], row["summary"]
+        assert "not delivered" in row["summary"]
+        # dedupe: same caller + category while open -> refresh, no second row
+        e2 = create_escalation("u9", "order_dispute", "Still nothing, very upset", urgency="emergency")
+        assert e2["created"] is False and e2["escalation_id"] == e1["escalation_id"]
+        assert get_escalation(e1["escalation_id"])["urgency"] == "emergency"  # refreshed
+        assert len(list_escalations()) == 1
+        # a different category is its own escalation
+        e3 = create_escalation("u9", "scheme_paperwork", "Needs help with PM SVANidhi form")
+        assert e3["created"] is True and e3["escalation_id"] != e1["escalation_id"]
+        assert len(list_escalations()) == 2
+        # resolving frees the dedupe slot -> a later same-category request files fresh
+        assert update_escalation_status(e1["escalation_id"], "resolved") is True
+        assert update_escalation_status(e1["escalation_id"], "bogus") is False
+        e4 = create_escalation("u9", "order_dispute", "A brand new dispute")
+        assert e4["created"] is True and e4["escalation_id"] != e1["escalation_id"]
+        # redaction also covers Aadhaar- and bank-account-shaped digit runs
+        r = _redact("aadhaar 1234 5678 9012 and account 123456789012345 pending")
+        assert "1234 5678 9012" not in r and "123456789012345" not in r, r
+        # most-urgent-first ordering (the resolved emergency still sorts to the top)
+        assert list_escalations()[0]["urgency"] == "emergency"
 
         print("memory selfcheck: OK", f"({path})")
     finally:

@@ -62,8 +62,11 @@ type CallBody = {
   order?: string;
   slot?: string;
   purpose?: string;
+  escalation_id?: string; // set when calling back to say a request was resolved
   at?: string; // ISO datetime to schedule the call; omit to call now
 };
+
+const PURPOSES = ['confirm', 'ready', 'escalation_resolved'];
 
 type Resolved =
   | { ok: true; clean: string; metadata: string }
@@ -100,7 +103,8 @@ function resolveCall(body: CallBody): Resolved {
     order_summary: body.order || facts.last_bill || '',
     delivery_slot: body.slot || facts.delivery_slot || '',
     caller_id: rec?.user_id || body.caller_id || '',
-    purpose: body.purpose === 'ready' ? 'ready' : 'confirm',
+    purpose: PURPOSES.includes(body.purpose || '') ? body.purpose : 'confirm',
+    escalation_id: body.escalation_id || '',
   });
   return { ok: true, clean, metadata };
 }
