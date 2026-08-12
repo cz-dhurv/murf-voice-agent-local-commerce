@@ -104,8 +104,10 @@ def init_db() -> None:
             """
         )
         # Day 7: requests the agent hands off to a human (order disputes, scheme/
-        # paperwork help). status: open -> in_progress -> resolved. One row per
-        # caller+category stays open at a time (see create_escalation dedupe).
+        # paperwork help). status: open -> in_progress -> resolved -> refunded
+        # (refunds only). One row per caller+category stays open at a time (see
+        # create_escalation dedupe). parent_id links a customer sub-issue (e.g. a
+        # promised refund that never arrived) back to the original ticket.
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS escalations (
@@ -118,11 +120,17 @@ def init_db() -> None:
                 language         TEXT,
                 follow_up_method TEXT,
                 status           TEXT NOT NULL DEFAULT 'open',
+                parent_id        TEXT,
                 created_at       TEXT,
                 updated_at       TEXT
             )
             """
         )
+        # Additive migration for DBs created before parent_id existed.
+        try:
+            conn.execute("ALTER TABLE escalations ADD COLUMN parent_id TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already present
         # Seed the shop's own local dataset. INSERT OR IGNORE keeps existing rows,
         # so a shopkeeper's price/stock edits survive a restart.
         conn.executemany(
@@ -366,23 +374,27 @@ def create_escalation(
     caller_name: Optional[str] = None,
     language: Optional[str] = None,
     follow_up_method: Optional[str] = None,
+    parent_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Log a request for human help, redacting sensitive tokens from the summary.
 
-    De-dupe: if this caller already has a non-resolved escalation in the SAME
-    category, refresh it (summary/urgency) instead of filing a second — a caller
-    who repeats themselves must not spam the shopkeeper. Anonymous callers (no
-    user_id) can't be de-duped, so each of theirs is filed fresh.
+    De-dupe: if this caller already has a live (not resolved/refunded) TOP-LEVEL
+    escalation in the SAME category, refresh it (summary/urgency) instead of filing
+    a second — a caller who repeats themselves must not spam the shopkeeper.
+    Anonymous callers (no user_id) can't be de-duped, so each of theirs is filed
+    fresh. Passing `parent_id` files a sub-issue under an existing ticket and always
+    creates a new row (a follow-up must never fold into its own parent).
     Returns {"escalation_id": str, "created": bool}.
     """
     category = reason_category if reason_category in _REASON_CATEGORIES else "other"
     level = urgency if urgency in _URGENCIES else "medium"
     clean_summary = _redact(summary or "").strip()[:600]
     with _connect() as conn:
-        if user_id:
+        if user_id and not parent_id:
             existing = conn.execute(
                 "SELECT escalation_id FROM escalations "
-                "WHERE user_id = ? AND reason_category = ? AND status != 'resolved'",
+                "WHERE user_id = ? AND reason_category = ? "
+                "AND status NOT IN ('resolved', 'refunded') AND parent_id IS NULL",
                 (user_id, category),
             ).fetchone()
             if existing:
@@ -396,13 +408,43 @@ def create_escalation(
         eid = "ESC-" + secrets.token_hex(3).upper()
         conn.execute(
             "INSERT INTO escalations (escalation_id, user_id, caller_name, "
-            "reason_category, summary, urgency, language, follow_up_method, status, "
+            "reason_category, summary, urgency, language, follow_up_method, parent_id, status, "
             "created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', datetime('now'), datetime('now'))",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', datetime('now'), datetime('now'))",
             (eid, user_id, caller_name, category, clean_summary, level, language,
-             follow_up_method),
+             follow_up_method, parent_id),
         )
     return {"escalation_id": eid, "created": True}
+
+
+def create_refund_followup(
+    user_id: str, summary: str, *, urgency: str = "high"
+) -> Optional[dict[str, str]]:
+    """File a 'refund not received' sub-issue under the caller's most recent refund
+    dispute, so the same person picks it up under the SAME ticket id.
+
+    Returns {"escalation_id", "parent_id"}, or None if the caller has no prior order
+    dispute to attach to (the agent then files it as a fresh dispute instead).
+    """
+    with _connect() as conn:
+        parent = conn.execute(
+            "SELECT escalation_id, caller_name, language FROM escalations "
+            "WHERE user_id = ? AND reason_category = 'order_dispute' AND parent_id IS NULL "
+            "ORDER BY datetime(created_at) DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+    if not parent:
+        return None
+    res = create_escalation(
+        user_id,
+        "order_dispute",
+        summary,
+        urgency=urgency,
+        caller_name=parent["caller_name"],
+        language=parent["language"],
+        parent_id=parent["escalation_id"],
+    )
+    return {"escalation_id": res["escalation_id"], "parent_id": parent["escalation_id"]}
 
 
 def list_escalations(status: Optional[str] = None) -> list[dict[str, Any]]:
@@ -427,8 +469,9 @@ def get_escalation(escalation_id: str) -> Optional[dict[str, Any]]:
 
 
 def update_escalation_status(escalation_id: str, status: str) -> bool:
-    """Move an escalation between open/in_progress/resolved. False on unknown status."""
-    if status not in ("open", "in_progress", "resolved"):
+    """Move an escalation between open/in_progress/resolved/refunded (refunded is
+    refund-only, the terminal 'money sent' state). False on an unknown status."""
+    if status not in ("open", "in_progress", "resolved", "refunded"):
         return False
     with _connect() as conn:
         cur = conn.execute(
@@ -511,6 +554,14 @@ async def acreate_escalation(
 
 async def aget_escalation(escalation_id: str) -> Optional[dict[str, Any]]:
     return await asyncio.to_thread(get_escalation, escalation_id)
+
+
+async def acreate_refund_followup(
+    user_id: str, summary: str, **kwargs: Any
+) -> Optional[dict[str, str]]:
+    return await asyncio.to_thread(
+        lambda: create_refund_followup(user_id, summary, **kwargs)
+    )
 
 
 def _selfcheck() -> None:
@@ -622,6 +673,21 @@ def _selfcheck() -> None:
         assert "1234 5678 9012" not in r and "123456789012345" not in r, r
         # most-urgent-first ordering (the resolved emergency still sorts to the top)
         assert list_escalations()[0]["urgency"] == "emergency"
+
+        # refund lifecycle: resolved -> refunded, then a "not received" sub-issue
+        # links under the SAME ticket and does NOT fold into its parent.
+        ref = create_escalation("u7", "order_dispute", "Wants refund for wrong item", urgency="high")
+        pid = ref["escalation_id"]
+        assert update_escalation_status(pid, "refunded") is True
+        assert update_escalation_status(pid, "part_paid") is False  # unknown status rejected
+        sub = create_refund_followup("u7", "Says the refund never reached the account")
+        assert sub and sub["parent_id"] == pid and sub["escalation_id"] != pid
+        assert get_escalation(sub["escalation_id"])["parent_id"] == pid
+        # a refunded parent must not be reopened by a fresh same-category dispute
+        again = create_escalation("u7", "order_dispute", "A different, new problem")
+        assert again["created"] is True and again["escalation_id"] not in (pid, sub["escalation_id"])
+        # no prior dispute -> follow-up can't attach, tool falls back to a fresh file
+        assert create_refund_followup("nobody-here", "chasing a refund") is None
 
         print("memory selfcheck: OK", f"({path})")
     finally:

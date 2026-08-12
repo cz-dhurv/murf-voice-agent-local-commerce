@@ -72,6 +72,7 @@ How to escalate, every time:
 - If they agree, call create_escalation with the right reason_category, a short plain-language summary, and an honest urgency (emergency only if money is lost or the caller is very distressed).
 - NEVER put an OTP, PIN, Aadhaar number, or bank account number in the summary — describe the problem without them.
 - After it saves, read the caller the reference id it gives you and say a person from the team will follow up. Do NOT promise a specific day or time, and never claim the issue is already fixed.
+- Refund chasing: if a caller says a refund we ALREADY told them was sent has not reached them, don't re-file a new dispute — ask permission, then use report_refund_not_received so it goes back to the same person under their original ticket.
 For anything else outside your scope (detailed tax or legal questions, a bank account or payment failure), you don't need to escalate — answer honestly and point them to a Chartered Accountant, their bank helpline, or the relevant scheme helpline.
 
 STYLE
@@ -286,9 +287,11 @@ class Assistant(Agent):
             items: JSON array of what they ordered, each with item_name and
                 quantity, e.g. '[{"item_name": "atta", "quantity": 5},
                 {"item_name": "sugar", "quantity": 2}]'.
-            phone: The caller's 10-digit mobile number for delivery, e.g.
-                "98765 43210". Required. Never pass an OTP, PIN, Aadhaar, or bank
-                account number here.
+            phone: The caller's actual 10-digit Indian mobile for delivery
+                (starts 6-9), exactly as they gave it on THIS call. Collect it
+                from the caller — never invent a number or copy an example.
+                Required. Never pass an OTP, PIN, Aadhaar, or bank account
+                number here.
             delivery_slot: When they want it, e.g. "morning" or "kal shaam".
             contact_name: Name the shop should ask for on delivery, if different
                 from the caller.
@@ -428,6 +431,49 @@ class Assistant(Agent):
         return (
             f"This is already logged under reference {eid} (updated, not duplicated). Tell the "
             f"caller it's already with the team under id {eid} and a person will follow up."
+        )
+
+    @function_tool
+    async def report_refund_not_received(
+        self,
+        context: RunContext,
+        details: str = "",
+    ) -> str:
+        """File a follow-up when a caller says a refund they were promised never arrived.
+
+        Use this ONLY for a caller chasing a refund on a dispute they ALREADY raised
+        with us before (e.g. we called to say the refund was processed and they say it
+        hasn't reached them). For a brand-new complaint, use create_escalation instead.
+        Ask permission first, then call this — it files the problem as a sub-issue under
+        their ORIGINAL refund ticket, so the same person picks it up under the same
+        reference. NEVER put an OTP, PIN, Aadhaar, or bank account number in `details`.
+        After it saves, read the caller the reference id; do NOT promise a time or say
+        it is fixed.
+
+        Args:
+            details: One plain sentence a human can act on, e.g. "says the refund for the
+                wrong-item order hasn't reached their account yet." No secrets.
+        """
+        if not self.user_id:
+            return "No caller id is available, so I can't link this to their earlier refund request."
+        res = await memory.acreate_refund_followup(
+            self.user_id,
+            details or "Caller says a promised refund has not arrived yet.",
+        )
+        if not res:
+            return (
+                "There is no earlier refund ticket on file to attach this to. If this is a real "
+                "refund problem, file it fresh with create_escalation (order_dispute) instead."
+            )
+        child, parent = res["escalation_id"], res["parent_id"]
+        esc = await memory.aget_escalation(child)
+        if esc:
+            await memory.send_discord_alert(esc)  # best-effort; DB row already saved
+        logger.info("refund follow-up %s filed under %s for %s", child, parent, self.user_id)
+        return (
+            f"Logged as a follow-up under the original refund ticket {parent}. Tell the caller it's "
+            f"back with the same person under reference {parent}, and do NOT promise a time or say "
+            "it is already fixed."
         )
 
 
@@ -593,9 +639,10 @@ def _outbound_opening(
     can't drift): within the first two sentences it says who is calling, why, and
     that the caller can stop the calls — the non-negotiable Day-6 requirement.
 
-    Three purposes: "confirm" (check the order we booked), "ready" (the shop has
-    prepared the order), and "escalation_resolved" (a human looked into a problem
-    the caller raised and it's sorted). All keep the who/why/opt-out.
+    Purposes: "confirm" (check the order we booked), "ready" (the shop has
+    prepared the order), "escalation_resolved" (a human looked into a problem the
+    caller raised and it's sorted), and "refund_processed" (the shop has sent a
+    refund the caller was owed). All keep the who/why/opt-out.
     """
     if lang == "en":
         greet = f"Hello {name}!" if name else "Hello!"
@@ -618,6 +665,15 @@ def _outbound_opening(
             return (
                 f"{who_why} Good news — someone from our team has looked into it and sorted "
                 "it out. Is now a good time to go over it?"
+            )
+        if purpose == "refund_processed":
+            who_why = (
+                f"{greet} This is DukaanSaathi, calling on behalf of your local shop about the "
+                f"refund on the order you raised with us. {stop}"
+            )
+            return (
+                f"{who_why} Good news — the shop has now processed your refund. If it hasn't "
+                "reached your account yet, tell me and I'll flag it for the same person to check."
             )
         who_why = (
             f"{greet} This is DukaanSaathi, calling on behalf of your local shop to "
@@ -646,6 +702,14 @@ def _outbound_opening(
         return (
             f"{who_why} अच्छी ख़बर — हमारी टीम ने उसे देख लिया है और हल कर दिया है। "
             "क्या अभी उस पर बात कर लें?"
+        )
+    if purpose == "refund_processed":
+        who_why = (
+            f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से — आपके ऑर्डर के refund के बारे में। {stop}"
+        )
+        return (
+            f"{who_why} अच्छी ख़बर — दुकान ने आपका refund process कर दिया है। अगर अभी तक आपके खाते में "
+            "नहीं पहुँचा हो, तो बता दीजिए, मैं उसी व्यक्ति को check करने के लिए बोल दूँगा।"
         )
     who_why = (
         f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से आपका ऑर्डर कन्फर्म "

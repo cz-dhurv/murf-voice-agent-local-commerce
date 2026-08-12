@@ -66,7 +66,7 @@ type CallBody = {
   at?: string; // ISO datetime to schedule the call; omit to call now
 };
 
-const PURPOSES = ['confirm', 'ready', 'escalation_resolved'];
+const PURPOSES = ['confirm', 'ready', 'escalation_resolved', 'refund_processed'];
 
 type Resolved =
   | { ok: true; clean: string; metadata: string }

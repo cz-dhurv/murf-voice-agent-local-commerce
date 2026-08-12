@@ -25,11 +25,12 @@ type EscalationRow = {
   language: string | null;
   follow_up_method: string | null;
   status: string;
+  parent_id: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
 
-const STATUSES = ['open', 'in_progress', 'resolved'];
+const STATUSES = ['open', 'in_progress', 'resolved', 'refunded'];
 
 // Most-urgent-then-newest, matching memory.list_escalations so the dashboard and
 // the agent agree on ordering.
