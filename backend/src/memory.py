@@ -16,8 +16,10 @@ import os
 import re
 import secrets
 import sqlite3
-from contextlib import contextmanager
-from typing import Any, Iterator, Optional, TypedDict
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from datetime import datetime, timezone
+from typing import Any, Optional, TypedDict
 
 logger = logging.getLogger("memory")
 
@@ -127,10 +129,29 @@ def init_db() -> None:
             """
         )
         # Additive migration for DBs created before parent_id existed.
-        try:
+        with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE escalations ADD COLUMN parent_id TEXT")
-        except sqlite3.OperationalError:
-            pass  # column already present
+        # Day 8: one privacy-safe lifecycle row per voice call. This deliberately
+        # stores no transcript, phone number, order contents, or caller facts.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS calls (
+                call_id       TEXT PRIMARY KEY,
+                user_id       TEXT,
+                channel       TEXT NOT NULL,
+                language      TEXT,
+                started_at    TEXT NOT NULL,
+                ended_at      TEXT,
+                duration_sec  REAL,
+                outcome       TEXT,
+                failure_type  TEXT,
+                track_outcome TEXT NOT NULL DEFAULT '{}'
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_calls_started_at ON calls(started_at)"
+        )
         # Seed the shop's own local dataset. INSERT OR IGNORE keeps existing rows,
         # so a shopkeeper's price/stock edits survive a restart.
         conn.executemany(
@@ -332,7 +353,9 @@ def build_bill(items: list[dict[str, Any]], phone: str) -> dict[str, Any]:
     """
     order = compute_order_total(items)
     parts = [order_line_phrase(li) for li in order["line_items"]]
-    summary = f"{', '.join(parts)} = ₹{order['total']:g}" if parts else "no billable items"
+    summary = (
+        f"{', '.join(parts)} = ₹{order['total']:g}" if parts else "no billable items"
+    )
     return {**order, "phone": phone, "summary": summary}
 
 
@@ -411,8 +434,17 @@ def create_escalation(
             "reason_category, summary, urgency, language, follow_up_method, parent_id, status, "
             "created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', datetime('now'), datetime('now'))",
-            (eid, user_id, caller_name, category, clean_summary, level, language,
-             follow_up_method, parent_id),
+            (
+                eid,
+                user_id,
+                caller_name,
+                category,
+                clean_summary,
+                level,
+                language,
+                follow_up_method,
+                parent_id,
+            ),
         )
     return {"escalation_id": eid, "created": True}
 
@@ -482,6 +514,84 @@ def update_escalation_status(escalation_id: str, status: str) -> bool:
     return cur.rowcount > 0
 
 
+# ---- call analytics (Day 8) ----
+def start_call(
+    call_id: str,
+    user_id: Optional[str],
+    channel: str,
+    language: Optional[str],
+) -> None:
+    """Start a call lifecycle row without storing conversation content.
+
+    Room names are used as call ids because LiveKit creates one per dispatched
+    job. INSERT OR IGNORE makes a retry of the lifecycle hook harmless.
+    """
+    safe_channel = channel if channel in ("browser", "sip_outbound") else "browser"
+    with _connect() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO calls "
+            "(call_id, user_id, channel, language, started_at) VALUES (?, ?, ?, ?, ?)",
+            (
+                call_id,
+                user_id,
+                safe_channel,
+                language,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+
+
+def update_call_context(
+    call_id: str, user_id: Optional[str], language: Optional[str]
+) -> None:
+    """Attach identity/language after the participant is known.
+
+    Identity remains backend-only and is never selected by the analytics API.
+    """
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE calls SET user_id = ?, language = ? WHERE call_id = ?",
+            (user_id, language, call_id),
+        )
+
+
+def end_call(
+    call_id: str,
+    outcome: str,
+    *,
+    failure_type: Optional[str] = None,
+    track_outcome: Optional[dict[str, bool]] = None,
+) -> None:
+    """Finalize a call with its derived outcome and non-sensitive flags."""
+    ended_at = datetime.now(timezone.utc)
+    result = "success" if outcome == "success" else "failed"
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT started_at FROM calls WHERE call_id = ?", (call_id,)
+        ).fetchone()
+        if not row:
+            return
+        try:
+            started_at = datetime.fromisoformat(row["started_at"])
+            duration_sec = max(0.0, (ended_at - started_at).total_seconds())
+        except (TypeError, ValueError):
+            duration_sec = None
+        conn.execute(
+            "UPDATE calls SET ended_at = ?, duration_sec = ?, outcome = ?, "
+            "failure_type = ?, track_outcome = ? WHERE call_id = ?",
+            (
+                ended_at.isoformat(),
+                duration_sec,
+                result,
+                None
+                if result == "success"
+                else failure_type or "no_qualifying_outcome",
+                json.dumps(track_outcome or {}, ensure_ascii=False),
+                call_id,
+            ),
+        )
+
+
 async def send_discord_alert(esc: dict[str, Any]) -> bool:
     """Best-effort ping to a Discord webhook when an escalation is filed.
 
@@ -495,9 +605,10 @@ async def send_discord_alert(esc: dict[str, Any]) -> bool:
     emoji = {"emergency": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(
         esc.get("urgency", ""), "🟡"
     )
-    cat = {"order_dispute": "Order dispute", "scheme_paperwork": "Scheme / paperwork"}.get(
-        esc.get("reason_category", ""), esc.get("reason_category") or "other"
-    )
+    cat = {
+        "order_dispute": "Order dispute",
+        "scheme_paperwork": "Scheme / paperwork",
+    }.get(esc.get("reason_category", ""), esc.get("reason_category") or "other")
     who = esc.get("caller_name") or esc.get("user_id") or "unknown caller"
     lines = [
         f"{emoji} **Human help needed** · `{esc.get('escalation_id', '')}`",
@@ -516,7 +627,6 @@ async def send_discord_alert(esc: dict[str, Any]) -> bool:
     except Exception:
         logger.warning("discord escalation alert failed", exc_info=True)
         return False
-
 
 
 # ---- async wrappers (sqlite is blocking; keep the agent event loop free) ----
@@ -576,7 +686,9 @@ def _selfcheck() -> None:
     try:
         init_db()
         assert get_caller("u1") is None
-        upsert_caller("u1", name="Ramesh", language_preference="hi", facts={"crop": "cotton"})
+        upsert_caller(
+            "u1", name="Ramesh", language_preference="hi", facts={"crop": "cotton"}
+        )
         rec = get_caller("u1")
         assert rec and rec["name"] == "Ramesh" and rec["facts"]["crop"] == "cotton"
         # merge: new fact added, existing kept, name preserved when omitted
@@ -611,10 +723,10 @@ def _selfcheck() -> None:
 
         order = compute_order_total(
             [
-                {"item_name": "rice", "quantity": 2},   # billed
+                {"item_name": "rice", "quantity": 2},  # billed
                 {"item_name": "onion", "quantity": 1},  # out of stock -> issue
-                {"item_name": "caviar", "quantity": 1}, # unknown -> issue
-                {"item_name": "oil", "quantity": 1},    # ambiguous -> issue
+                {"item_name": "caviar", "quantity": 1},  # unknown -> issue
+                {"item_name": "oil", "quantity": 1},  # ambiguous -> issue
             ]
         )
         assert order["total"] == round(58.0 * 2, 2)
@@ -625,8 +737,8 @@ def _selfcheck() -> None:
         assert normalize_phone("98765 43210") == "9876543210"
         assert normalize_phone("+91 98765-43210") == "9876543210"
         assert normalize_phone("098765 43210") == "9876543210"
-        assert normalize_phone("12345") is None          # too short
-        assert normalize_phone("1234567890") is None      # bad leading digit
+        assert normalize_phone("12345") is None  # too short
+        assert normalize_phone("1234567890") is None  # bad leading digit
         assert normalize_phone("") is None
 
         # bill: priced from the catalogue, carries phone + a spoken summary that
@@ -638,29 +750,45 @@ def _selfcheck() -> None:
         assert "x" not in bill["summary"]  # the old "rice x2" bug must stay gone
         # multi-line order reads with each item's own unit
         two = build_bill(
-            [{"item_name": "milk", "quantity": 2}, {"item_name": "basmati rice", "quantity": 5}],
+            [
+                {"item_name": "milk", "quantity": 2},
+                {"item_name": "basmati rice", "quantity": 5},
+            ],
             "9876543210",
         )
-        assert two["summary"] == "2 litre milk, 5 kilo basmati rice = ₹587", two["summary"]
+        assert two["summary"] == "2 litre milk, 5 kilo basmati rice = ₹587", two[
+            "summary"
+        ]
 
         # escalations (Day 7): file, redact, dedupe, status transitions, ordering
         e1 = create_escalation(
-            "u9", "order_dispute", "Paid but order not delivered. OTP is 445566.",
-            urgency="high", caller_name="Sita",
+            "u9",
+            "order_dispute",
+            "Paid but order not delivered. OTP is 445566.",
+            urgency="high",
+            caller_name="Sita",
         )
         assert e1["created"] is True and e1["escalation_id"].startswith("ESC-")
         row = get_escalation(e1["escalation_id"])
         assert row and row["status"] == "open" and row["urgency"] == "high"
         # sensitive token stripped, rest of the summary kept
-        assert "445566" not in row["summary"] and "[redacted]" in row["summary"], row["summary"]
+        assert "445566" not in row["summary"] and "[redacted]" in row["summary"], row[
+            "summary"
+        ]
         assert "not delivered" in row["summary"]
         # dedupe: same caller + category while open -> refresh, no second row
-        e2 = create_escalation("u9", "order_dispute", "Still nothing, very upset", urgency="emergency")
+        e2 = create_escalation(
+            "u9", "order_dispute", "Still nothing, very upset", urgency="emergency"
+        )
         assert e2["created"] is False and e2["escalation_id"] == e1["escalation_id"]
-        assert get_escalation(e1["escalation_id"])["urgency"] == "emergency"  # refreshed
+        assert (
+            get_escalation(e1["escalation_id"])["urgency"] == "emergency"
+        )  # refreshed
         assert len(list_escalations()) == 1
         # a different category is its own escalation
-        e3 = create_escalation("u9", "scheme_paperwork", "Needs help with PM SVANidhi form")
+        e3 = create_escalation(
+            "u9", "scheme_paperwork", "Needs help with PM SVANidhi form"
+        )
         assert e3["created"] is True and e3["escalation_id"] != e1["escalation_id"]
         assert len(list_escalations()) == 2
         # resolving frees the dedupe slot -> a later same-category request files fresh
@@ -676,16 +804,23 @@ def _selfcheck() -> None:
 
         # refund lifecycle: resolved -> refunded, then a "not received" sub-issue
         # links under the SAME ticket and does NOT fold into its parent.
-        ref = create_escalation("u7", "order_dispute", "Wants refund for wrong item", urgency="high")
+        ref = create_escalation(
+            "u7", "order_dispute", "Wants refund for wrong item", urgency="high"
+        )
         pid = ref["escalation_id"]
         assert update_escalation_status(pid, "refunded") is True
-        assert update_escalation_status(pid, "part_paid") is False  # unknown status rejected
+        assert (
+            update_escalation_status(pid, "part_paid") is False
+        )  # unknown status rejected
         sub = create_refund_followup("u7", "Says the refund never reached the account")
         assert sub and sub["parent_id"] == pid and sub["escalation_id"] != pid
         assert get_escalation(sub["escalation_id"])["parent_id"] == pid
         # a refunded parent must not be reopened by a fresh same-category dispute
         again = create_escalation("u7", "order_dispute", "A different, new problem")
-        assert again["created"] is True and again["escalation_id"] not in (pid, sub["escalation_id"])
+        assert again["created"] is True and again["escalation_id"] not in (
+            pid,
+            sub["escalation_id"],
+        )
         # no prior dispute -> follow-up can't attach, tool falls back to a fresh file
         assert create_refund_followup("nobody-here", "chasing a refund") is None
 

@@ -36,6 +36,70 @@ flowchart LR
 
 ---
 
+## Day 8 — Call Analytics Dashboard
+
+DukaanSaathi now includes a real-time, privacy-safe analytics dashboard for both
+browser and outbound SIP calls. A call is marked **successful** only when a real
+commerce outcome occurs: a catalogue product is found, an order is placed, or a
+human escalation is filed. The result comes directly from function-tool output,
+not from transcript sentiment or an LLM-generated guess.
+
+### End-to-end architecture
+
+```mermaid
+flowchart TD
+    Caller[Caller: browser or phone] --> LK[LiveKit room]
+    LK --> STT[Deepgram Nova-3 STT]
+    STT --> LLM[Google Gemini]
+    LLM --> Tools[DukaanSaathi function tools]
+    Tools --> Memory[(SQLite)]
+    LLM --> TTS[Murf Falcon TTS]
+    TTS --> LK
+
+    LK --> Lifecycle[Call lifecycle hooks]
+    Tools --> Outcomes[Deterministic outcome flags]
+    Lifecycle --> Calls[(calls table)]
+    Outcomes --> Calls
+    Calls --> API[Next.js /api/call-stats]
+    API --> Dashboard[Call Analytics dashboard]
+```
+
+### Analytics lifecycle
+
+1. A LiveKit job starts and creates a row in the SQLite `calls` table.
+2. The assistant records deterministic flags when its tools return qualifying results:
+   `product_found`, `order_placed`, and `escalation_filed`.
+3. LiveKit's shutdown callback finalizes the call with its duration, outcome, failure
+   category, channel, language, and track-specific flags.
+4. The Next.js API reads the same SQLite database and returns aggregates plus a limited
+   recent-call view.
+5. `/dashboard/analytics` polls the API every seven seconds and displays totals, success
+   rate, failures, average duration, daily volume, channel performance, orders, and
+   escalations. Date, channel, and language filters are supported.
+
+### Privacy boundary
+
+The analytics API and dashboard never expose caller IDs, phone numbers, transcripts,
+order contents, escalation summaries, OTPs, PINs, Aadhaar details, or bank information.
+Only operational metadata and boolean outcome flags are used for reporting.
+
+### Day 8 testing
+
+```powershell
+cd backend
+uv run ruff check src/agent.py src/memory.py tests/test_call_analytics.py
+uv run pytest tests/test_call_analytics.py
+
+cd ..\frontend
+.\node_modules\.bin\eslint.cmd app\api\call-stats\route.ts app\dashboard\analytics\page.tsx components\app\dashboard\shell.tsx
+.\node_modules\.bin\tsc.cmd --noEmit
+```
+
+Open `http://localhost:3000/dashboard/analytics`, complete a product lookup, order, or
+human escalation, end the call, and wait up to seven seconds for the dashboard update.
+
+---
+
 ## Quickstart
 
 ### Prerequisites

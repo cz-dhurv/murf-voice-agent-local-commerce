@@ -16,11 +16,10 @@ from livekit.agents import (
     RunContext,
     cli,
     function_tool,
-    inference,
-    tokenize,
     room_io,
+    tokenize,
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
+from livekit.plugins import deepgram, google, murf, noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 import memory
@@ -118,12 +117,33 @@ If the caller asks you to stop calling, or says they don't want these calls, res
 # Domain terms Deepgram tends to mishear in this Hinglish commerce context.
 # nova-3 keyterm prompting boosts these so scheme/payment names transcribe correctly.
 STT_KEYTERMS = [
-    "UPI", "QR code", "BHIM", "RuPay", "PhonePe", "Google Pay", "Paytm",
-    "KYC", "Aadhaar", "GST", "ONDC", "PM SVANidhi", "Mudra Yojana",
-    "Udyam", "MSME", "WhatsApp Business", "Google Business", "catalogue",
-    "DukaanSaathi", "rupees",
+    "UPI",
+    "QR code",
+    "BHIM",
+    "RuPay",
+    "PhonePe",
+    "Google Pay",
+    "Paytm",
+    "KYC",
+    "Aadhaar",
+    "GST",
+    "ONDC",
+    "PM SVANidhi",
+    "Mudra Yojana",
+    "Udyam",
+    "MSME",
+    "WhatsApp Business",
+    "Google Business",
+    "catalogue",
+    "DukaanSaathi",
+    "rupees",
     # catalogue items — boost so orders/prices transcribe correctly
-    "atta", "basmati", "toor dal", "mustard oil", "sunflower oil", "detergent",
+    "atta",
+    "basmati",
+    "toor dal",
+    "mustard oil",
+    "sunflower oil",
+    "detergent",
 ]
 
 
@@ -136,6 +156,13 @@ class Assistant(Agent):
         # Caller's language ('hi'/'en'), set alongside user_id — stamped onto any
         # escalation so the human follow-up knows which language to call back in.
         self.language: Optional[str] = None
+        self.call_success = False
+        self.failure_type: Optional[str] = None
+        self.track_outcome = {
+            "product_found": False,
+            "order_placed": False,
+            "escalation_filed": False,
+        }
 
     @function_tool
     async def lookup_caller(self, context: RunContext) -> str:
@@ -211,7 +238,11 @@ class Assistant(Agent):
             quantity: How many units they want (default 1); used for the line total.
         """
         try:
-            return await memory.alookup_product(item_name, quantity)
+            result = await memory.alookup_product(item_name, quantity)
+            if result.get("status") == "found":
+                self.call_success = True
+                self.track_outcome["product_found"] = True
+            return result
         except Exception:
             logger.exception("lookup_product failed for %r", item_name)
             return {
@@ -253,7 +284,11 @@ class Assistant(Agent):
                 ),
             }
         try:
-            return await memory.acompute_order_total(items)
+            result = await memory.acompute_order_total(items)
+            if result.get("line_items"):
+                self.call_success = True
+                self.track_outcome["product_found"] = True
+            return result
         except Exception:
             logger.exception("compute_order_total failed")
             return {
@@ -320,6 +355,9 @@ class Assistant(Agent):
             issues = "; ".join(bill["issues"]) or "no items could be billed"
             return f"Nothing could be added to the order ({issues}). Tell the caller and ask again."
 
+        self.call_success = True
+        self.track_outcome["order_placed"] = True
+
         if not self.user_id:
             # No stable id — acknowledge with the bill, just can't remember it.
             return (
@@ -335,7 +373,9 @@ class Assistant(Agent):
         facts = {
             "last_bill": bill["summary"],
             "last_bill_total": f"₹{bill['total']:g}",
-            "contact": f"{contact_name} {clean_phone}".strip() if contact_name else clean_phone,
+            "contact": f"{contact_name} {clean_phone}".strip()
+            if contact_name
+            else clean_phone,
             "order_status": "placed",  # dashboard flips this to "ready" to trigger the ready-call
         }
         if delivery_slot:
@@ -343,7 +383,10 @@ class Assistant(Agent):
         await memory.aupsert_caller(self.user_id, facts=facts)
         logger.info(
             "order booked for %s: %s (phone=%s slot=%s)",
-            self.user_id, bill["summary"], clean_phone, delivery_slot or "-",
+            self.user_id,
+            bill["summary"],
+            clean_phone,
+            delivery_slot or "-",
         )
         issues_note = ""
         if bill["issues"]:
@@ -415,12 +458,18 @@ class Assistant(Agent):
             follow_up_method=follow_up_method or None,
         )
         eid = res["escalation_id"]
+        self.call_success = True
+        self.track_outcome["escalation_filed"] = True
         esc = await memory.aget_escalation(eid)
         if esc:
             await memory.send_discord_alert(esc)  # best-effort; DB row already saved
         logger.info(
             "escalation %s for %s (category=%s urgency=%s created=%s)",
-            eid, self.user_id, reason_category, urgency, res["created"],
+            eid,
+            self.user_id,
+            reason_category,
+            urgency,
+            res["created"],
         )
         if res["created"]:
             return (
@@ -466,16 +515,19 @@ class Assistant(Agent):
                 "refund problem, file it fresh with create_escalation (order_dispute) instead."
             )
         child, parent = res["escalation_id"], res["parent_id"]
+        self.call_success = True
+        self.track_outcome["escalation_filed"] = True
         esc = await memory.aget_escalation(child)
         if esc:
             await memory.send_discord_alert(esc)  # best-effort; DB row already saved
-        logger.info("refund follow-up %s filed under %s for %s", child, parent, self.user_id)
+        logger.info(
+            "refund follow-up %s filed under %s for %s", child, parent, self.user_id
+        )
         return (
             f"Logged as a follow-up under the original refund ticket {parent}. Tell the caller it's "
             f"back with the same person under reference {parent}, and do NOT promise a time or say "
             "it is already fixed."
         )
-
 
 
 server = AgentServer()
@@ -501,25 +553,25 @@ async def my_agent(ctx: JobContext):
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(
-                model="nova-3",
-                language="multi",  # Hinglish code-switching
-                keyterm=STT_KEYTERMS,  # boost domain vocab (UPI, GST, ONDC…)
-                numerals=True,  # spoken amounts -> digits ("do sau rupees" -> 200)
-            ),
+            model="nova-3",
+            language="multi",  # Hinglish code-switching
+            keyterm=STT_KEYTERMS,  # boost domain vocab (UPI, GST, ONDC…)
+            numerals=True,  # spoken amounts -> digits ("do sau rupees" -> 200)
+        ),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=google.LLM(
-                model="gemini-3.5-flash-lite",
-            ),
+            model="gemini-3.5-flash-lite",
+        ),
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
-                voice="Anisha",
-                style="Conversation",
-                speed=-4,  # ponytail: mild slowdown for warmth/clarity; nudge toward 0 if it drags
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=5),
-                text_pacing=True
-            ),
+            voice="Anisha",
+            style="Conversation",
+            speed=-4,  # ponytail: mild slowdown for warmth/clarity; nudge toward 0 if it drags
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=5),
+            text_pacing=True,
+        ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
@@ -549,6 +601,30 @@ async def my_agent(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     assistant = Assistant()
+    meta = _job_metadata(ctx)
+    channel = "sip_outbound" if meta.get("phone_number") else "browser"
+    call_id = ctx.room.name
+    await asyncio.to_thread(memory.start_call, call_id, None, channel, None)
+
+    async def finalize_call(reason: str = "") -> None:
+        failure_type = assistant.failure_type or (
+            None if assistant.call_success else "no_qualifying_outcome"
+        )
+        await asyncio.to_thread(
+            memory.end_call,
+            call_id,
+            "success" if assistant.call_success else "failed",
+            failure_type=failure_type,
+            track_outcome=assistant.track_outcome,
+        )
+        logger.info(
+            "call analytics finalized: call_id=%s outcome=%s reason=%s",
+            call_id,
+            "success" if assistant.call_success else "failed",
+            reason or "-",
+        )
+
+    ctx.add_shutdown_callback(finalize_call)
     await session.start(
         agent=assistant,
         room=ctx.room,
@@ -571,7 +647,6 @@ async def my_agent(ctx: JobContext):
     # call), dial the customer, speak the mandatory opening, then let the session
     # run normally. Inbound browser sessions carry no such metadata and fall
     # through to the unchanged greeting flow below.
-    meta = _job_metadata(ctx)
     if meta.get("phone_number"):
         await _dial_and_confirm(ctx, session, assistant, meta)
         return
@@ -587,6 +662,9 @@ async def my_agent(ctx: JobContext):
     assistant.user_id = attrs.get("caller_id")
     lang = attrs.get("language")
     assistant.language = lang  # stamped onto any escalation filed during the call
+    await asyncio.to_thread(
+        memory.update_call_context, call_id, assistant.user_id, assistant.language
+    )
     # Visible in the worker log so you can confirm the caller id actually arrived —
     # if this is None, saves will no-op and the dashboard stays empty.
     logger.info("call bound: caller_id=%s language=%s", assistant.user_id, lang)
@@ -646,13 +724,9 @@ def _outbound_opening(
     """
     if lang == "en":
         greet = f"Hello {name}!" if name else "Hello!"
-        stop = (
-            "If you would rather not get these calls, just tell me and I won't call again."
-        )
+        stop = "If you would rather not get these calls, just tell me and I won't call again."
         if purpose == "ready":
-            who_why = (
-                f"{greet} This is DukaanSaathi, calling from your local shop with good news. {stop}"
-            )
+            who_why = f"{greet} This is DukaanSaathi, calling from your local shop with good news. {stop}"
             if order_summary:
                 slot = f", ready for {delivery_slot} delivery" if delivery_slot else ""
                 return f"{who_why} Your order — {order_summary} — is ready now{slot}. Shall the shop send it over?"
@@ -681,15 +755,15 @@ def _outbound_opening(
         )
         if order_summary:
             slot = f", delivery {delivery_slot}" if delivery_slot else ""
-            return f"{who_why} Your order was {order_summary}{slot}. Is that all correct?"
+            return (
+                f"{who_why} Your order was {order_summary}{slot}. Is that all correct?"
+            )
         return f"{who_why} Is now a good time to talk?"
     # Hindi default — Devanagari, never romanized.
     greet = f"नमस्ते {name} जी!" if name else "नमस्ते!"
     stop = "अगर आप ये कॉल नहीं चाहते तो बस बता दीजिए, मैं दोबारा कॉल नहीं करूँगा।"
     if purpose == "ready":
-        who_why = (
-            f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से एक ख़ुशख़बरी लेकर। {stop}"
-        )
+        who_why = f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से एक ख़ुशख़बरी लेकर। {stop}"
         if order_summary:
             slot = f", {delivery_slot} की डिलीवरी के लिए" if delivery_slot else ""
             return f"{who_why} आपका ऑर्डर — {order_summary} — अब तैयार है{slot}। क्या दुकान से भेज दें?"
@@ -704,9 +778,7 @@ def _outbound_opening(
             "क्या अभी उस पर बात कर लें?"
         )
     if purpose == "refund_processed":
-        who_why = (
-            f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से — आपके ऑर्डर के refund के बारे में। {stop}"
-        )
+        who_why = f"{greet} मैं DukaanSaathi बोल रहा हूँ, आपकी दुकान की तरफ़ से — आपके ऑर्डर के refund के बारे में। {stop}"
         return (
             f"{who_why} अच्छी ख़बर — दुकान ने आपका refund process कर दिया है। अगर अभी तक आपके खाते में "
             "नहीं पहुँचा हो, तो बता दीजिए, मैं उसी व्यक्ति को check करने के लिए बोल दूँगा।"
@@ -728,14 +800,20 @@ async def _dial_and_confirm(
     off to the running session so the conversation continues normally."""
     trunk_id = os.getenv("LIVEKIT_SIP_OUTBOUND_TRUNK_ID", "").strip()
     if not trunk_id:
-        logger.error("LIVEKIT_SIP_OUTBOUND_TRUNK_ID not set — cannot place outbound call")
+        logger.error(
+            "LIVEKIT_SIP_OUTBOUND_TRUNK_ID not set — cannot place outbound call"
+        )
+        assistant.failure_type = "configuration_error"
         return
 
     # Normalize here: this is the single choke point every outbound path routes
     # through, so a raw "Ramesh 98765 43210" from stored facts still dials clean.
     clean = memory.normalize_phone(meta.get("phone_number", ""))
     if not clean:
-        logger.error("outbound: %r is not a valid mobile number", meta.get("phone_number"))
+        logger.error(
+            "outbound: %r is not a valid mobile number", meta.get("phone_number")
+        )
+        assistant.failure_type = "invalid_destination"
         return
     dial_to = f"+91{clean}"
 
@@ -758,6 +836,7 @@ async def _dial_and_confirm(
         # No-answer / busy / rejected all surface here. This is where per-outcome
         # retries would go (plan §9); for now log it and let the job end cleanly.
         logger.warning("outbound call to %s did not connect: %s", dial_to, e)
+        assistant.failure_type = "not_connected"
         return
     finally:
         await lk.aclose()
@@ -768,6 +847,9 @@ async def _dial_and_confirm(
     lang = (rec.get("language_preference") if rec else None) or "hi"
     name = rec.get("name") if rec else None
     assistant.language = lang  # stamped onto any escalation filed mid-call
+    await asyncio.to_thread(
+        memory.update_call_context, ctx.room.name, assistant.user_id, assistant.language
+    )
 
     purpose = meta.get("purpose") or "confirm"
     opening = _outbound_opening(
@@ -779,7 +861,10 @@ async def _dial_and_confirm(
     )
     logger.info(
         "outbound connected to %s (caller_id=%s purpose=%s escalation=%s)",
-        dial_to, assistant.user_id, purpose, meta.get("escalation_id") or "-",
+        dial_to,
+        assistant.user_id,
+        purpose,
+        meta.get("escalation_id") or "-",
     )
     # say() (not generate_reply) keeps the disclosure verbatim; add_to_chat_ctx
     # (default True) puts the order into context so the LLM can field follow-ups.
@@ -792,7 +877,7 @@ async def _wait_for_attributes(
     """Poll briefly for the attributes the frontend sets right after connect
     (`language`, `caller_id`). Returns whatever is present once `caller_id` shows
     up, or after the budget expires (a fresh caller may have neither yet).
-    ponytail: 40 × 0.1s = 4s ceiling; loop exits the instant caller_id lands, so
+    ponytail: 40 x 0.1s = 4s ceiling; loop exits the instant caller_id lands, so
     a fast client pays nothing. Widen only if saves still no-op on slow connects."""
     for _ in range(tries):
         attrs = dict(participant.attributes)

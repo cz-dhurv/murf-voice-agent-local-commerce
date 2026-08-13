@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BarChart3,
   Bell,
   Bot,
   Boxes,
@@ -36,6 +37,7 @@ type NavItem = { href: string; label: string; icon: React.ElementType };
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/live', label: 'Live Session', icon: Radio },
+  { href: '/dashboard/analytics', label: 'Call Analytics', icon: BarChart3 },
   { href: '/dashboard/catalogue', label: 'Catalogue', icon: Boxes },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/callers', label: 'Caller Profiles', icon: Users },
