@@ -100,6 +100,57 @@ human escalation, end the call, and wait up to seven seconds for the dashboard u
 
 ---
 
+## Day 9 — Returns & Refunds Specialist Handoff
+
+DukaanSaathi now routes genuine post-delivery disputes to a separate
+`ReturnsSpecialist` agent. The main assistant remains responsible for catalogue,
+pricing, orders, shop information, and general digital-commerce help. The specialist
+handles only wrong, damaged, missing, refund, replacement, and return-eligibility cases.
+
+The handoff uses LiveKit's native agent-switch mechanism:
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant M as Main Assistant
+    participant R as Returns Specialist
+    participant DB as Escalations + Analytics
+
+    C->>M: Reports wrong/damaged/missing item
+    M-->>C: Announces specialist transfer
+    M->>R: Chat context + identity + shared CallState
+    R-->>C: Introduces specialist role
+    R->>C: Asks policy questions one at a time
+    R->>DB: Files eligible dispute after consent
+    R-->>C: Reads human follow-up reference
+    R->>M: Hands back when resolved or topic changes
+```
+
+The specialist applies a clear three-day return policy and cannot approve or process a
+refund itself. Eligible cases reuse the existing `order_dispute` escalation workflow, so
+they appear in the same Human Help Queue rather than a separate system.
+
+Conversation history is copied without the previous agent's instructions, allowing the
+specialist to continue without asking the caller to repeat the problem. Caller identity,
+language, and Day 8 analytics use one shared mutable `CallState`; therefore an escalation
+filed after a handoff still marks the overall call successful.
+
+Run the deterministic handoff tests with:
+
+```powershell
+cd backend
+uv run pytest tests/test_handoff.py tests/test_call_analytics.py
+```
+
+Important routing checks:
+
+- “The oil I ordered was leaking” transfers to the specialist.
+- “Do you have sugar?” stays with the main assistant.
+- “The delivery was late, but everything is correct” stays with the main assistant.
+- A catalogue question asked during a specialist conversation hands back to the main agent.
+
+---
+
 ## Quickstart
 
 ### Prerequisites

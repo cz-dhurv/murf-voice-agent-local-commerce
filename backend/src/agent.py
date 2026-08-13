@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Optional
+from typing import Optional, TypedDict
 
 from dotenv import load_dotenv
 from livekit import api as lk_api
@@ -11,6 +11,7 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    ChatContext,
     JobContext,
     JobProcess,
     RunContext,
@@ -25,6 +26,25 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 import memory
 
 logger = logging.getLogger("agent")
+
+
+class CallState(TypedDict):
+    success: bool
+    failure_type: Optional[str]
+    track_outcome: dict[str, bool]
+
+
+def new_call_state() -> CallState:
+    return {
+        "success": False,
+        "failure_type": None,
+        "track_outcome": {
+            "product_found": False,
+            "order_placed": False,
+            "escalation_filed": False,
+        },
+    }
+
 
 load_dotenv(".env.local")
 memory.init_db()  # ensure the callers table exists before any tool call
@@ -62,13 +82,14 @@ Never claim:
 - That a specific scheme application will be approved.
 - To know live wholesale or market prices. The only prices you quote are the shop's own catalogue prices.
 
-ESCALATION — know when to STOP and ask a human (do not guess)
-Two kinds of problem are NOT yours to settle. Recognise them and hand them to a person with the create_escalation tool instead of improvising an answer:
-- Order disputes: the caller says an order is wrong, missing, damaged, never arrived, over-charged, or wants a refund or to complain — anything you cannot fix with your ordering tools.
-- Scheme or paperwork help: the caller wants real help applying for a government scheme or filling a form (PM SVANidhi, Mudra, Udyam/GST registration, a subsidy) — more than the one line of general information you may give.
+ESCALATION — know when to STOP and route correctly (do not guess)
+Two kinds of problem are NOT yours to settle:
+- Returns/refunds: if an item already delivered is wrong, damaged, missing, or the caller wants a refund/replacement, use transfer_to_returns_specialist. Also transfer when they ask whether an old order is eligible for return. Do NOT transfer catalogue questions, new orders, price questions, shop hours, or a delivery that was merely late but otherwise correct.
+- Scheme or paperwork help: if the caller wants real help applying for a government scheme or filling a form, use create_escalation after permission.
 How to escalate, every time:
+- Transferring to the internal Returns & Refunds Specialist is not a human escalation. Do it immediately when the case matches. Do not ask permission before this internal handoff; the transfer tool itself announces what is happening.
 - First ASK permission: "क्या मैं यह हमारी टीम को भेज दूँ ताकि कोई इंसान आपकी मदद करे?" (or the English equivalent). If the caller says no, respect it and do NOT call the tool.
-- If they agree, call create_escalation with the right reason_category, a short plain-language summary, and an honest urgency (emergency only if money is lost or the caller is very distressed).
+- For scheme/paperwork help, if they agree, call create_escalation with reason_category="scheme_paperwork", a short plain-language summary, and an honest urgency.
 - NEVER put an OTP, PIN, Aadhaar number, or bank account number in the summary — describe the problem without them.
 - After it saves, read the caller the reference id it gives you and say a person from the team will follow up. Do NOT promise a specific day or time, and never claim the issue is already fixed.
 - Refund chasing: if a caller says a refund we ALREADY told them was sent has not reached them, don't re-file a new dispute — ask permission, then use report_refund_not_received so it goes back to the same person under their original ticket.
@@ -147,22 +168,103 @@ STT_KEYTERMS = [
 ]
 
 
+RETURNS_PROMPT = """You are DukaanSaathi's Returns & Refunds Specialist. Your only
+job is to help with wrong items, damaged goods, missing items, and refund or
+replacement requests for an existing order. Do not answer catalogue, pricing,
+new-order, shop-hours, or general business questions. Offer to hand those back to
+the main assistant with hand_back_to_main.
+
+SHOP RETURN POLICY
+- Wrong, damaged, or missing items can be reported within 3 days of delivery.
+- Perishables such as loose grains and dairy are eligible only if visibly spoiled
+  on arrival, wrong, damaged, or missing.
+- Refunds go back through the original payment method, or as shop credit if the
+  caller prefers.
+- A delivery that was only late, but arrived correct and undamaged, is not a return.
+
+PROCESS
+1. Continue from the existing conversation. Never make the caller repeat facts
+   they already gave before the handoff.
+2. Ask what went wrong, then how many days have passed since delivery. Ask one
+   question at a time.
+3. If the issue is covered and within 3 days, explain eligibility and ask whether
+   they want a refund or replacement.
+4. Once eligible and their preferred resolution is known, ask permission to send
+   the request to a person. Only after consent, call create_escalation. A human must
+   actually approve or process it; you cannot do that yourself.
+5. If outside policy, explain it plainly and kindly. Do not promise an exception or
+   create an escalation unless new facts make the case covered.
+6. When the return/refund matter is finished, or the caller changes topic, use
+   hand_back_to_main.
+
+Never ask for or store OTPs, PINs, Aadhaar numbers, or bank details. Keep spoken
+responses short, use the caller's current language, and do not use formatting,
+emoji, or complex lists."""
+
+
+async def _file_escalation(
+    *,
+    user_id: Optional[str],
+    language: Optional[str],
+    call_state: CallState,
+    reason_category: str,
+    summary: str,
+    urgency: str,
+    follow_up_method: str,
+) -> str:
+    """One escalation implementation shared by the main and specialist agents."""
+    rec = await memory.aget_caller(user_id) if user_id else None
+    res = await memory.acreate_escalation(
+        user_id,
+        reason_category,
+        summary,
+        urgency=urgency,
+        caller_name=(rec.get("name") if rec else None),
+        language=language,
+        follow_up_method=follow_up_method or None,
+    )
+    eid = res["escalation_id"]
+    call_state["success"] = True
+    call_state["track_outcome"]["escalation_filed"] = True
+    esc = await memory.aget_escalation(eid)
+    if esc:
+        await memory.send_discord_alert(esc)
+    logger.info(
+        "escalation %s for %s (category=%s urgency=%s created=%s)",
+        eid,
+        user_id,
+        reason_category,
+        urgency,
+        res["created"],
+    )
+    if res["created"]:
+        return (
+            f"Escalation filed with reference id {eid}. Read this id to the caller, tell "
+            "them a person from the team will follow up on it, and do NOT promise a "
+            "specific time. Then ask if there is anything else you can help with."
+        )
+    return (
+        f"This is already logged under reference {eid} (updated, not duplicated). Tell the "
+        f"caller it's already with the team under id {eid} and a person will follow up."
+    )
+
+
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=SYSTEM_PROMPT)
+    def __init__(
+        self,
+        chat_ctx: Optional[ChatContext] = None,
+        user_id: Optional[str] = None,
+        language: Optional[str] = None,
+        call_state: Optional[CallState] = None,
+    ) -> None:
+        super().__init__(instructions=SYSTEM_PROMPT, chat_ctx=chat_ctx)
         # Stable id for the current caller (set from the frontend `caller_id`
         # attribute once the participant joins). All tools operate on this caller.
-        self.user_id: Optional[str] = None
+        self.user_id = user_id
         # Caller's language ('hi'/'en'), set alongside user_id — stamped onto any
         # escalation so the human follow-up knows which language to call back in.
-        self.language: Optional[str] = None
-        self.call_success = False
-        self.failure_type: Optional[str] = None
-        self.track_outcome = {
-            "product_found": False,
-            "order_placed": False,
-            "escalation_filed": False,
-        }
+        self.language = language
+        self.call_state = call_state if call_state is not None else new_call_state()
 
     @function_tool
     async def lookup_caller(self, context: RunContext) -> str:
@@ -240,8 +342,8 @@ class Assistant(Agent):
         try:
             result = await memory.alookup_product(item_name, quantity)
             if result.get("status") == "found":
-                self.call_success = True
-                self.track_outcome["product_found"] = True
+                self.call_state["success"] = True
+                self.call_state["track_outcome"]["product_found"] = True
             return result
         except Exception:
             logger.exception("lookup_product failed for %r", item_name)
@@ -286,8 +388,8 @@ class Assistant(Agent):
         try:
             result = await memory.acompute_order_total(items)
             if result.get("line_items"):
-                self.call_success = True
-                self.track_outcome["product_found"] = True
+                self.call_state["success"] = True
+                self.call_state["track_outcome"]["product_found"] = True
             return result
         except Exception:
             logger.exception("compute_order_total failed")
@@ -355,8 +457,8 @@ class Assistant(Agent):
             issues = "; ".join(bill["issues"]) or "no items could be billed"
             return f"Nothing could be added to the order ({issues}). Tell the caller and ask again."
 
-        self.call_success = True
-        self.track_outcome["order_placed"] = True
+        self.call_state["success"] = True
+        self.call_state["track_outcome"]["order_placed"] = True
 
         if not self.user_id:
             # No stable id — acknowledge with the bill, just can't remember it.
@@ -423,14 +525,12 @@ class Assistant(Agent):
         urgency: str = "medium",
         follow_up_method: str = "",
     ) -> str:
-        """Hand a problem to a human helper when it is beyond what you should decide.
+        """Hand scheme or paperwork help to a human helper.
 
-        Use this in TWO situations, and ONLY after the caller agrees you may pass it on:
-        - "order_dispute": the caller says an order is wrong, missing, damaged, never
-          arrived, over-charged, or wants a refund/complaint you cannot settle yourself.
-        - "scheme_paperwork": the caller needs real help applying for a government scheme
-          or filling a form (PM SVANidhi, Mudra, Udyam/GST registration, a subsidy) —
-          more than the one line of general info you may give.
+        Use this only when the caller needs real help applying for a government
+        scheme or filling a form (PM SVANidhi, Mudra, Udyam/GST registration, a
+        subsidy), and only after permission. For wrong, damaged, missing, refund,
+        or replacement cases, use transfer_to_returns_specialist instead.
 
         Ask permission first ("क्या मैं यह हमारी टीम को भेज दूँ?" / "Shall I pass this to
         our team?"). If they say no, do NOT call this. NEVER put an OTP, PIN, Aadhaar, or
@@ -439,7 +539,7 @@ class Assistant(Agent):
         promise a specific day or time, and never say it is already fixed.
 
         Args:
-            reason_category: "order_dispute" or "scheme_paperwork".
+            reason_category: Use "scheme_paperwork" for this main-agent tool.
             summary: One or two plain sentences a human can act on — what the caller needs
                 plus any order/scheme detail. No secrets.
             urgency: "low", "medium", "high", or "emergency" (emergency = money lost or a
@@ -447,40 +547,41 @@ class Assistant(Agent):
             follow_up_method: How to reach them back, e.g. "call back on file" or a slot
                 they gave.
         """
-        rec = await memory.aget_caller(self.user_id) if self.user_id else None
-        res = await memory.acreate_escalation(
-            self.user_id,
-            reason_category,
-            summary,
-            urgency=urgency,
-            caller_name=(rec.get("name") if rec else None),
+        return await _file_escalation(
+            user_id=self.user_id,
             language=self.language,
-            follow_up_method=follow_up_method or None,
+            call_state=self.call_state,
+            reason_category="scheme_paperwork",
+            summary=summary,
+            urgency=urgency,
+            follow_up_method=follow_up_method,
         )
-        eid = res["escalation_id"]
-        self.call_success = True
-        self.track_outcome["escalation_filed"] = True
-        esc = await memory.aget_escalation(eid)
-        if esc:
-            await memory.send_discord_alert(esc)  # best-effort; DB row already saved
-        logger.info(
-            "escalation %s for %s (category=%s urgency=%s created=%s)",
-            eid,
-            self.user_id,
-            reason_category,
-            urgency,
-            res["created"],
-        )
-        if res["created"]:
-            return (
-                f"Escalation filed with reference id {eid}. Read this id to the caller, tell "
-                "them a person from the team will follow up on it, and do NOT promise a "
-                "specific time. Then ask if there is anything else you can help with."
+
+    @function_tool
+    async def transfer_to_returns_specialist(
+        self, context: RunContext
+    ) -> tuple[Agent, str] | str:
+        """Transfer a genuine return or refund case to the specialist.
+
+        Use this when an existing order is wrong, damaged, missing, or the caller
+        wants a refund or replacement. Also use it for return-eligibility questions.
+        Do not use it for catalogue/price questions, new orders, shop hours, or an
+        order that was merely delivered late but arrived correct and undamaged.
+        """
+        try:
+            specialist = ReturnsSpecialist(
+                chat_ctx=self.chat_ctx.copy(exclude_instructions=True),
+                user_id=self.user_id,
+                language=self.language,
+                call_state=self.call_state,
             )
-        return (
-            f"This is already logged under reference {eid} (updated, not duplicated). Tell the "
-            f"caller it's already with the team under id {eid} and a person will follow up."
-        )
+        except Exception:
+            logger.exception("failed to start ReturnsSpecialist")
+            return (
+                "I'm having trouble connecting you to the specialist right now. "
+                "We can keep going here instead; tell me what happened with your order."
+            )
+        return specialist, "I will connect you to our returns and refunds specialist."
 
     @function_tool
     async def report_refund_not_received(
@@ -515,8 +616,8 @@ class Assistant(Agent):
                 "refund problem, file it fresh with create_escalation (order_dispute) instead."
             )
         child, parent = res["escalation_id"], res["parent_id"]
-        self.call_success = True
-        self.track_outcome["escalation_filed"] = True
+        self.call_state["success"] = True
+        self.call_state["track_outcome"]["escalation_filed"] = True
         esc = await memory.aget_escalation(child)
         if esc:
             await memory.send_discord_alert(esc)  # best-effort; DB row already saved
@@ -528,6 +629,91 @@ class Assistant(Agent):
             f"back with the same person under reference {parent}, and do NOT promise a time or say "
             "it is already fixed."
         )
+
+
+class ReturnsSpecialist(Agent):
+    def __init__(
+        self,
+        chat_ctx: Optional[ChatContext],
+        user_id: Optional[str],
+        language: Optional[str],
+        call_state: CallState,
+    ) -> None:
+        super().__init__(
+            instructions=RETURNS_PROMPT,
+            chat_ctx=chat_ctx,
+            tts=murf.TTS(
+                voice="Samar",
+                style="Conversation",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=5),
+                text_pacing=True,
+            ),
+        )
+        self.user_id = user_id
+        self.language = language
+        self.call_state = call_state
+
+    async def on_enter(self) -> None:
+        intro = {
+            "en": (
+                "Briefly introduce yourself as DukaanSaathi's returns and refunds "
+                "specialist, then continue from the caller's existing issue without "
+                "asking them to repeat it."
+            ),
+            "hi": (
+                "अपने आप को संक्षेप में DukaanSaathi के रिटर्न और रिफंड विशेषज्ञ के "
+                "रूप में परिचित कराएँ। फिर पहले से बताई समस्या पर आगे मदद करें और कॉलर "
+                "से उसे दोबारा बताने को न कहें।"
+            ),
+        }.get(
+            self.language,
+            (
+                "Briefly introduce yourself as the returns and refunds specialist, "
+                "then continue the existing issue without asking for repetition."
+            ),
+        )
+        await self.session.generate_reply(instructions=intro)
+
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        summary: str,
+        urgency: str = "medium",
+        follow_up_method: str = "call back",
+    ) -> str:
+        """Send an eligible return/refund request to a human for processing.
+
+        Use only after confirming the issue is covered by policy, learning whether
+        the caller wants a refund or replacement, and receiving permission to pass
+        the request to a person. The summary must contain the issue, days since
+        delivery, and desired resolution, but no sensitive information.
+        """
+        return await _file_escalation(
+            user_id=self.user_id,
+            language=self.language,
+            call_state=self.call_state,
+            reason_category="order_dispute",
+            summary=summary,
+            urgency=urgency,
+            follow_up_method=follow_up_method,
+        )
+
+    @function_tool
+    async def hand_back_to_main(self, context: RunContext) -> tuple[Agent, str]:
+        """Return to the main assistant after the dispute is handled or topic changes.
+
+        Use when the return/refund matter is complete, or when the caller asks about
+        catalogue items, prices, a new order, shop information, schemes, or another
+        topic outside returns and refunds.
+        """
+        main = Assistant(
+            chat_ctx=self.chat_ctx.copy(exclude_instructions=True),
+            user_id=self.user_id,
+            language=self.language,
+            call_state=self.call_state,
+        )
+        return main, "I will connect you back to our main DukaanSaathi assistant."
 
 
 server = AgentServer()
@@ -600,27 +786,28 @@ async def my_agent(ctx: JobContext):
     # await avatar.start(session, room=ctx.room)
 
     # Start the session, which initializes the voice pipeline and warms up the models
-    assistant = Assistant()
+    call_state = new_call_state()
+    assistant = Assistant(call_state=call_state)
     meta = _job_metadata(ctx)
     channel = "sip_outbound" if meta.get("phone_number") else "browser"
     call_id = ctx.room.name
     await asyncio.to_thread(memory.start_call, call_id, None, channel, None)
 
     async def finalize_call(reason: str = "") -> None:
-        failure_type = assistant.failure_type or (
-            None if assistant.call_success else "no_qualifying_outcome"
+        failure_type = call_state["failure_type"] or (
+            None if call_state["success"] else "no_qualifying_outcome"
         )
         await asyncio.to_thread(
             memory.end_call,
             call_id,
-            "success" if assistant.call_success else "failed",
+            "success" if call_state["success"] else "failed",
             failure_type=failure_type,
-            track_outcome=assistant.track_outcome,
+            track_outcome=call_state["track_outcome"],
         )
         logger.info(
             "call analytics finalized: call_id=%s outcome=%s reason=%s",
             call_id,
-            "success" if assistant.call_success else "failed",
+            "success" if call_state["success"] else "failed",
             reason or "-",
         )
 
@@ -803,7 +990,7 @@ async def _dial_and_confirm(
         logger.error(
             "LIVEKIT_SIP_OUTBOUND_TRUNK_ID not set — cannot place outbound call"
         )
-        assistant.failure_type = "configuration_error"
+        assistant.call_state["failure_type"] = "configuration_error"
         return
 
     # Normalize here: this is the single choke point every outbound path routes
@@ -813,7 +1000,7 @@ async def _dial_and_confirm(
         logger.error(
             "outbound: %r is not a valid mobile number", meta.get("phone_number")
         )
-        assistant.failure_type = "invalid_destination"
+        assistant.call_state["failure_type"] = "invalid_destination"
         return
     dial_to = f"+91{clean}"
 
@@ -836,7 +1023,7 @@ async def _dial_and_confirm(
         # No-answer / busy / rejected all surface here. This is where per-outcome
         # retries would go (plan §9); for now log it and let the job end cleanly.
         logger.warning("outbound call to %s did not connect: %s", dial_to, e)
-        assistant.failure_type = "not_connected"
+        assistant.call_state["failure_type"] = "not_connected"
         return
     finally:
         await lk.aclose()
